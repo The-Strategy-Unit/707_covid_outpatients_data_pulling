@@ -11,6 +11,23 @@ library(lubridate)
 con <-
   dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
 
+## Look up for relevant dates ####
+
+dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
+                                      as.Date("2020-12-31"),
+                                      by = "day"),
+                       week = week(day),
+                       formattedweek = day %>% map_chr(function(x) {
+                         paste0(year(x), "-", if (str_count(week(x)) == 1) {
+                           paste0(0, week(x))
+                         } else {
+                           week(x)
+                         }
+                         )
+                         }),
+                       month = month(day)
+)
+
 ## Create Empty List Container ####
 
 Provider_List <- list()
@@ -181,9 +198,13 @@ Provider_List[["RTT_Table"]] <- tbl(
 	and Provider_Org_Code = ''RL4''
 	' )"
   )
-) %>% collect()
+) %>% filter(Treatment_Function_Code == "C_110") %>% collect()
 
-Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table"]] %>% group_by(RTT_Part_Name, Effective_Snapshot_Date) %>% summarise(sum_Total = sum(Total_All)) %>% pivot_wider(names_from = RTT_Part_Name, values_from = sum_Total)
+Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table"]] %>% 
+  mutate_at("RTT_Part_Name", function(x) str_replace_all(x, "PART", "Part")) %>% 
+  group_by(RTT_Part_Name, Effective_Snapshot_Date) %>% 
+  summarise(sum_Total = sum(Total_All)) %>% 
+  pivot_wider(names_from = RTT_Part_Name, values_from = sum_Total)
 Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
 Provider_List[["RTT_Table"]] <- NULL
 
@@ -235,10 +256,10 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
 
 Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>% group_by(Effective_Snapshot_Date, Grade) %>% summarise(sum_FTE = sum(Total_FTE)) %>% pivot_wider(names_from = Grade, values_from = sum_FTE) %>% ungroup()
 Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
+Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
+Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
+Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
 Provider_List[["Staffing_Medical"]] <- NULL
-Provider_List[["Staffing_Medical"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
-Provider_List[["Staffing_Medical"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
-Provider_List[["Staffing_Medical"]]$Consultant %<>% as.numeric()
 ## X Staffing - Non-Medical ####
 
 # Provider_List[["Staffing_NonMed"]] <- tbl(
@@ -343,7 +364,7 @@ Provider_List_Mutate %>% map(~ (
 
 ## Join
 
-Binded <- reduce(Provider_List, left_join, c("Effective_Snapshot_Date", "Organisation_Code"))
+Binded <- reduce(Provider_List_Mutate, full_join, c("Effective_Snapshot_Date", "Organisation_Code"))
 
 
 ## Testing ####
