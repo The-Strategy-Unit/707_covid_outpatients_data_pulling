@@ -236,7 +236,9 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
 Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>% group_by(Effective_Snapshot_Date, Grade) %>% summarise(sum_FTE = sum(Total_FTE)) %>% pivot_wider(names_from = Grade, values_from = sum_FTE) %>% ungroup()
 Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
 Provider_List[["Staffing_Medical"]] <- NULL
-
+Provider_List[["Staffing_Medical"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
+Provider_List[["Staffing_Medical"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
+Provider_List[["Staffing_Medical"]]$Consultant %<>% as.numeric()
 ## X Staffing - Non-Medical ####
 
 # Provider_List[["Staffing_NonMed"]] <- tbl(
@@ -323,8 +325,9 @@ Provider_List_Mutate <- Provider_List %>% imap( ~ {
   
   
 if (.y == "Referrals") {
-  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Referrals_Sum = sum(ACTIVITY))
+  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Organisation_Code = first(Organisation_Code), Referrals_Sum = sum(ACTIVITY))
   df[which(is.na(df$Referrals_Sum)),"Referrals_Sum"] <- 0
+  df[which(is.na(df$Organisation_Code)),"Organisation_Code"] <- Provider_List_Mutate[["Referrals"]]$Organisation_Code[1] ## first element will always be valid
 } else {
   df <-
     df %>% fill(-"Effective_Snapshot_Date", .direction = "down")
@@ -332,21 +335,18 @@ if (.y == "Referrals") {
   return(df)
 })
 
+## Check has cols ####
+
+Provider_List_Mutate %>% map(~ (
+  colnames(.x) %in% c("Effective_Snapshot_Date", "Organisation_Code")
+) %>% sum() == 2)
+
 ## Join
 
-left_join(
-  Provider_List_Mutate[["Occupied_Beds_Daycare"]] %>% select(-"Specialty"),
-  Provider_List_Mutate[["Occupied_Beds_Overnight"]],
-  by = c("Effective_Snapshot_Date", "Organisation_Code")
-) %>% left_join(
-  Provider_List_Mutate[["Staffing_Sickness"]] %>% select(-"Organisation_Type")
-) %>% left_join(
-  Provider_List_Mutate[["Cancelled_Elective_Ops"]] %>% select(-"Number_Of_Cancellations_On_The_Day_Of_Surgery", -"X")
-) %>% left_join(
-  Provider_List_Mutate[["Theatres"]]
-)
+Binded <- reduce(Provider_List, left_join, c("Effective_Snapshot_Date", "Organisation_Code"))
 
-## 
+
+## Testing ####
 
 df <- Provider_List[["Staffing_Sickness"]]
 df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
