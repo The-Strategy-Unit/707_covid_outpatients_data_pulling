@@ -27,7 +27,7 @@ Provider_List[["Theatres"]] <- tbl(
 	FROM [central_midlands_csu_UserDB].[Cancelled_Elec_Ops].[Supporting_Facilities1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
   )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+) %>% filter(Organisation_Code == "RL4") %>% collect()
 
 ## Cancelled Elective Operations ####
 
@@ -44,53 +44,53 @@ Provider_List[["Cancelled_Elective_Ops"]] <- tbl(
  FROM [central_midlands_csu_UserDB].[Cancelled_Elec_Ops].[Cancelled_Elective_Ops_By_Provider1]#
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
   )
-  ) %>% filter(Organisation_Code == "R1H") %>% collect()
+  ) %>% filter(Organisation_Code == "RL4") %>% collect()
                                             
-## RTT Incomplete Monthly (in full) ####
+## X RTT Incomplete Monthly (in full) ####
 
-Provider_List[["RTT_Incomplete"]] <- tbl(
-  con,
-  sql("SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT  Organisation_Code
-		, Treatment_Function_Code
-		, Number_Of_Weeks_Since_Referral
-		, Number_Of_Incomplete_Pathways
-		, Number_Of_Incomplete_Pathways_with_DTA
-		, Effective_Snapshot_Date
-	FROM [central_midlands_csu_UserDB].[RTT].[Incomplete_Pathways_Provider1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )")
-) %>% filter(Organisation_Code == "R1H", Treatment_Function_Code == 100) %>% collect()
+# Provider_List[["RTT_Incomplete"]] <- tbl(
+#   con,
+#   sql("SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT  Organisation_Code
+# 		, Treatment_Function_Code
+# 		, Number_Of_Weeks_Since_Referral
+# 		, Number_Of_Incomplete_Pathways
+# 		, Number_Of_Incomplete_Pathways_with_DTA
+# 		, Effective_Snapshot_Date
+# 	FROM [central_midlands_csu_UserDB].[RTT].[Incomplete_Pathways_Provider1]
+# 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )")
+# ) %>% filter(Organisation_Code == "RL4", Treatment_Function_Code == 100) %>% collect()
+# 
+# Provider_List[["RTT_Incomplete_100"]] <- Provider_List[["RTT_Incomplete"]] %>% filter(Treatment_Function_Code == 100)
 
-Provider_List[["RTT_Incomplete_100"]] <- Provider_List[["RTT_Incomplete"]] %>% filter(Treatment_Function_Code == 100)
+## X RTT Complete NonAdmitted Monthly (in full) ####
 
-## RTT Complete NonAdmitted Monthly (in full) ####
+# Provider_List[["RTT_Complete_NonAdm"]] <- tbl(
+#   con,
+#   sql(
+#     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
+# 		, Treatment_Function_Code
+# 		, Number_Of_Weeks_Since_Referral
+# 		, Number_Of_Completed_NonAdmitted_Pathways
+# 		, Effective_Snapshot_Date
+# 	FROM [central_midlands_csu_UserDB].[RTT].[Completed_NonAdmitted_Pathways_Provider1]
+# 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
+#   )
+# ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
-Provider_List[["RTT_Complete_NonAdm"]] <- tbl(
-  con,
-  sql(
-    "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-		, Treatment_Function_Code
-		, Number_Of_Weeks_Since_Referral
-		, Number_Of_Completed_NonAdmitted_Pathways
-		, Effective_Snapshot_Date
-	FROM [central_midlands_csu_UserDB].[RTT].[Completed_NonAdmitted_Pathways_Provider1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+## X RTT Completed Admitted Monthly (in full) ####
 
-## RTT Completed Admitted Monthly (in full) ####
-
-Provider_List[["RTT_Complete_Adm"]] <- tbl(
-  con,
-  sql(
-    "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-		, Treatment_Function_Code
-		, Number_Of_Weeks_Since_Referral
-		, Number_Of_Completed_Admitted_Pathways
-		, Effective_Snapshot_Date
-	FROM [central_midlands_csu_UserDB].[RTT].[Completed_Admitted_Pathways_Provider1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+# Provider_List[["RTT_Complete_Adm"]] <- tbl(
+#   con,
+#   sql(
+#     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
+# 		, Treatment_Function_Code
+# 		, Number_Of_Weeks_Since_Referral
+# 		, Number_Of_Completed_Admitted_Pathways
+# 		, Effective_Snapshot_Date
+# 	FROM [central_midlands_csu_UserDB].[RTT].[Completed_Admitted_Pathways_Provider1]
+# 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
+#   )
+# ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
 ## RTT Referrals ####
 
@@ -106,7 +106,7 @@ Provider_List[["RTT_Referrals"]] <- tbl(
 	FROM [central_midlands_csu_UserDB].[RTT].[New_Data_Items_Provider1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
   )
-) %>% filter(Organisation_Code == "R1H", Treatment_Function_Code == "110") %>% collect()
+) %>% filter(Organisation_Code == "RL4", Treatment_Function_Code == "110") %>% collect()
 Provider_List[["RTT_Referrals"]] <- Provider_List[["RTT_Referrals"]] %>% select(Effective_Snapshot_Date, Organisation_Code, Report_Period_Length) %>% rename(Num_RTT_Referrals = Report_Period_Length)
 
 ## RTT Full Table ####
@@ -178,7 +178,7 @@ Provider_List[["RTT_Table"]] <- tbl(
 , Effective_Snapshot_Date
  FROM [central_midlands_csu_UserDB].[RTT].[Full_Dataset1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')
-	and Provider_Org_Code = ''R1H''
+	and Provider_Org_Code = ''RL4''
 	' )"
   )
 ) %>% collect()
@@ -191,13 +191,15 @@ Provider_List[["RTT_Table"]] <- NULL
 
 Provider_List[["Occupied_Beds_Daycare"]] <- tbl(
   con,
-  sql(" SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
+  sql(
+  " SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
 		, Specialty
 		, Number_Of_Beds AS Number_Of_Beds_DAY
 		, Effective_Snapshot_Date
  FROM [central_midlands_csu_UserDB].[Bed_Availability].[Provider_By_Specialty_Occupied_Day_Only_Beds1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )")
-) %>% filter(Organisation_Code == "R1H", Specialty == "110") %>% collect()
+	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
+      )
+) %>% filter(Organisation_Code == "RL4", Specialty == "110") %>% collect()
 
 ## Occupied Beds - Overnight Quarterly ####
 
@@ -211,7 +213,7 @@ sql(
  FROM [central_midlands_csu_UserDB].[Bed_Availability].[Provider_By_Specialty_Occupied_Overnt_Beds1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
 )
-) %>% filter(Organisation_Code == "R1H", Specialty == "110") %>% collect()
+) %>% filter(Organisation_Code == "RL4", Specialty == "110") %>% collect()
 
 ## Staffing - Medical ####
 
@@ -229,30 +231,30 @@ Provider_List[["Staffing_Medical"]] <- tbl(
 FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
   )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+) %>% filter(Organisation_Code == "RL4") %>% collect()
 
 Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>% group_by(Effective_Snapshot_Date, Grade) %>% summarise(sum_FTE = sum(Total_FTE)) %>% pivot_wider(names_from = Grade, values_from = sum_FTE) %>% ungroup()
 Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
 Provider_List[["Staffing_Medical"]] <- NULL
 
-## Staffing - Non-Medical ####
+## X Staffing - Non-Medical ####
 
-Provider_List[["Staffing_NonMed"]] <- tbl(
-  con,
-  sql(
-    "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT    Organisation_Code
-		, Main_Staff_Group
-		, Staff_Group_1
-		, Staff_Group_2
-		, Area
-		, Level
-		, AfC_Band
-		, Total_FTE
-		, Effective_Snapshot_Date
-FROM [central_midlands_csu_UserDB].[NHS_Workforce].[NonMedical_Staff1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+# Provider_List[["Staffing_NonMed"]] <- tbl(
+#   con,
+#   sql(
+#     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT    Organisation_Code
+# 		, Main_Staff_Group
+# 		, Staff_Group_1
+# 		, Staff_Group_2
+# 		, Area
+# 		, Level
+# 		, AfC_Band
+# 		, Total_FTE
+# 		, Effective_Snapshot_Date
+# FROM [central_midlands_csu_UserDB].[NHS_Workforce].[NonMedical_Staff1]
+# 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
+#   )
+# ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
 ## Staffing HCHS Sickness ####
 
@@ -267,7 +269,7 @@ Provider_List[["Staffing_Sickness"]] <- tbl(
 FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
   )
-) %>% filter(Organisation_Code == "R1H") %>% collect()
+) %>% filter(Organisation_Code == "RL4") %>% collect()
 
 ## Referrals ####
 
@@ -289,11 +291,11 @@ Provider_List[["Referrals"]] <- tbl(
       ,[DECISION_TO_REFER_DATE]
     "
   )
-) %>% filter(SPECIALTY_CODE == "110", Organisation_Code == "R1H") %>% collect()
+) %>% filter(SPECIALTY_CODE == "110", Organisation_Code == "RL4") %>% collect()
 
 ## Further wrangling ####
 
-Provider_List_Mutate <- Provider_List %>% map( ~ {
+Provider_List_Mutate <- Provider_List %>% imap( ~ {
   df <- .x
   df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
   df <-
@@ -318,9 +320,15 @@ Provider_List_Mutate <- Provider_List %>% map( ~ {
   
   df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates &
                   is.na(Organisation_Code)))
-
+  
+  
+if (.y == "Referrals") {
+  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Referrals_Sum = sum(ACTIVITY))
+  df[which(is.na(df$Referrals_Sum)),"Referrals_Sum"] <- 0
+} else {
   df <-
     df %>% fill(-"Effective_Snapshot_Date", .direction = "down")
+}
   return(df)
 })
 
