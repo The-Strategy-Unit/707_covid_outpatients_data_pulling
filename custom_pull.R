@@ -301,6 +301,8 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
   )
 ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
+Provider_List[["Staffing_Sickness"]] %<>% mutate(Absence_PCT = (FTE_Days_Sick/FTE_Days_Available)*100)
+
 ## Referrals ####
 
 Provider_List[["Referrals"]] <- tbl(
@@ -329,7 +331,7 @@ Provider_List[["Referrals"]] <- tbl(
 
 ## Further wrangling imap ####
 
-Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Theatres"))] %>% imap( ~ {
+Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Theatres", "Staffing_Medical_Sum", "Staffing_Sickness"))] %>% imap( ~ {
   df <- .x
   df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
   df <-
@@ -498,6 +500,7 @@ df <-
   ))
 df <-
   df %>% arrange(Effective_Snapshot_Date) %>% fill(-"Effective_Snapshot_Date", .direction = "down")
+df %<>% mutate(AbsenseRate = )
 
 ## Save ####
 
