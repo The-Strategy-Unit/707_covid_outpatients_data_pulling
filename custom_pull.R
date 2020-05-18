@@ -110,22 +110,22 @@ Provider_List[["Cancelled_Elective_Ops"]] <- tbl(
 #   )
 # ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
-## RTT Referrals ####
+## X RTT Referrals ####
 
-Provider_List[["RTT_Referrals"]] <- tbl(
-  con,
-  sql(
-    "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-		, Treatment_Function_Code
-		, Number_Of_Incomplete_Pathways
-		, Number_Of_Incomplete_Pathways_With_DTA_For_Treatment
-		, Number_Of_New_RTT_Clock_Starts_In_Month	Report_Period_Length
-		, Effective_Snapshot_Date
-	FROM [central_midlands_csu_UserDB].[RTT].[New_Data_Items_Provider1]
-	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  )
-) %>% filter(Organisation_Code == "RL4", Treatment_Function_Code == "110") %>% collect()
-Provider_List[["RTT_Referrals"]] <- Provider_List[["RTT_Referrals"]] %>% select(Effective_Snapshot_Date, Organisation_Code, Report_Period_Length) %>% rename(Num_RTT_Referrals = Report_Period_Length)
+# Provider_List[["RTT_Referrals"]] <- tbl(
+#   con,
+#   sql(
+#     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
+# 		, Treatment_Function_Code
+# 		, Number_Of_Incomplete_Pathways
+# 		, Number_Of_Incomplete_Pathways_With_DTA_For_Treatment
+# 		, Number_Of_New_RTT_Clock_Starts_In_Month	Report_Period_Length
+# 		, Effective_Snapshot_Date
+# 	FROM [central_midlands_csu_UserDB].[RTT].[New_Data_Items_Provider1]
+# 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
+#   )
+# ) %>% filter(Organisation_Code == "RL4", Treatment_Function_Code == "110") %>% collect()
+# Provider_List[["RTT_Referrals"]] <- Provider_List[["RTT_Referrals"]] %>% select(Effective_Snapshot_Date, Organisation_Code, Report_Period_Length) %>% rename(Num_RTT_Referrals = Report_Period_Length)
 
 ## RTT Full Table ####
 
@@ -202,12 +202,12 @@ Provider_List[["RTT_Table"]] <- tbl(
 ) %>% filter(Treatment_Function_Code == "C_110") %>% collect()
 
 Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table"]] %>% 
-  mutate_at("RTT_Part_Name", function(x) str_replace_all(x, "PART", "Part")) %>% 
-  group_by(RTT_Part_Name, Effective_Snapshot_Date) %>% 
+  # mutate_at("RTT_Part_Name", function(x) str_replace_all(x, "PART", "Part")) %>% 
+  group_by(RTT_Part_Description, Effective_Snapshot_Date) %>% 
   summarise(sum_Total = sum(Total_All)) %>% 
-  pivot_wider(names_from = RTT_Part_Name, values_from = sum_Total)
+  pivot_wider(names_from = RTT_Part_Description, values_from = sum_Total, names_repair = "universal")
 Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
-Provider_List[["RTT_Table"]] <- NULL
+Provider_List[["RTT_Table_Pivot"]] %<>% rename("RTT_Referrals" = "New.RTT.Periods...All.Patients")
 
 ## Occupied Beds - Daycare Quarterly ####
 
@@ -399,13 +399,27 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] <- df %>% group_by(
     Effective_Snapshot_Date_Year,
     Effective_Snapshot_Date_Month,
     Effective_Snapshot_Date_Week
-  ) %>% 
-  mutate(Propn = round(Activity_Sum/sum(Activity_Sum), 3))
+  ) %>%
+  mutate(Propn = round(Activity_Sum / sum(Activity_Sum), 3))
+Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
+  with(
+    Provider_List_Mutate[["Referrals_MonthWeek"]],
+    paste0(
+      Effective_Snapshot_Date_Year,
+      "-",
+      Effective_Snapshot_Date_Week %>% map(~ if (str_length(.x) == 1) {
+        paste0("0", .x)
+      }
+      else {
+        .x
+      })
+    )
+  )
 
 Provider_List_Mutate[["Referrals_Week"]] <-
   Provider_List_Mutate[["Referrals_MonthWeek"]] %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
     Organisation_Code = unique(Organisation_Code),
-    Referrals_Sum = sum(Activity_Sum)
+    GP_Referrals = sum(Activity_Sum)
   )
 Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
   with(
@@ -413,14 +427,47 @@ Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
     paste0(
       Effective_Snapshot_Date_Year,
       "-",
-      Effective_Snapshot_Date_Week %>% map( ~ if (str_length(.x) == 1)
+      Effective_Snapshot_Date_Week %>% map(~ if (str_length(.x) == 1) {
         paste0("0", .x)
-        else
-          .x)
+      } else {
+        .x
+      })
     )
   )
 
 rm(df)
+
+## Further wrangling - Full RTT table ####
+
+Provider_List[["RTT_Table_Pivot"]] <-
+  Provider_List[["RTT_Table_Pivot"]] %>%
+  mutate_at("Effective_Snapshot_Date", as.Date)
+Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table_Pivot"]] %>% filter(Effective_Snapshot_Date >= "2019-01-01")
+
+Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date_Year <-
+  year( Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date)
+Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date_Month <-
+  month(Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date)
+
+Provider_List_Mutate[["Referrals_MonthWeek"]] <- left_join(
+  Provider_List_Mutate[["Referrals_MonthWeek"]],
+  Provider_List[["RTT_Table_Pivot"]] %>% select(-Organisation_Code,-Effective_Snapshot_Date),
+  by = c(
+    "Effective_Snapshot_Date_Year",
+    "Effective_Snapshot_Date_Month"
+  )
+) %>% mutate_at(vars("Completed.Pathways.For.Admitted.Patients":"RTT_Referrals"),
+                ~ round(.*Propn, 0))
+
+Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]] <-
+  Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date) %>% summarise(Organisation_Code = unique(Organisation_Code),
+             CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
+             CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
+             IncompletePathways = sum(Incomplete.Pathways),
+             IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
+             RTT_Referrals = sum(RTT_Referrals))
+
+
 
 ## Check has cols ####
 
