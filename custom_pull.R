@@ -230,7 +230,7 @@ Provider_List[["Occupied_Beds_Overnight"]] <- tbl(
 sql(
   "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
 		, Specialty
-		, Number_Of_Beds AS Number_of_Beds_NIGHT
+		, Number_Of_Beds AS Number_Of_Beds_NIGHT
 		, Effective_Snapshot_Date
  FROM [central_midlands_csu_UserDB].[Bed_Availability].[Provider_By_Specialty_Occupied_Overnt_Beds1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
@@ -255,11 +255,17 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   )
 ) %>% filter(Organisation_Code == "RL4") %>% collect()
 
-Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>% group_by(Effective_Snapshot_Date, Grade) %>% summarise(sum_FTE = sum(Total_FTE)) %>% pivot_wider(names_from = Grade, values_from = sum_FTE) %>% ungroup()
+Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>%
+  filter(Specialty == "Trauma and orthopaedic surgery") %>% 
+  group_by(Effective_Snapshot_Date, Grade) %>% 
+  summarise(sum_FTE = sum(Total_FTE)) %>% 
+  pivot_wider(names_from = Grade, values_from = sum_FTE) %>% 
+  ungroup()
 Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
 Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
 Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
 Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
+Provider_List[["Staffing_Medical_Sum"]] %<>% mutate(Medic_Sum = rowSums(select(., -Effective_Snapshot_Date, -Organisation_Code)))
 Provider_List[["Staffing_Medical"]] <- NULL
 ## X Staffing - Non-Medical ####
 
@@ -321,9 +327,9 @@ Provider_List[["Referrals"]] <- tbl(
 
 
 
-## Further wrangling ####
+## Further wrangling imap ####
 
-Provider_List_Mutate <- Provider_List %>% imap( ~ {
+Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Theatres"))] %>% imap( ~ {
   df <- .x
   df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
   df <-
@@ -354,11 +360,11 @@ Provider_List_Mutate <- Provider_List %>% imap( ~ {
   return(df)
 })
 
-## Further Wrangling for Referrals ####
+## Further wrangling for referrals ####
 
 df <- Provider_List[["Referrals"]]
 df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
-df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
+# df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
 df <-
   df %>% complete(Effective_Snapshot_Date = seq.Date(
     as.Date("2019-01-01"),
@@ -437,12 +443,12 @@ Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
 
 rm(df)
 
-## Further wrangling - Full RTT table ####
+## Further wrangling - full RTT table ####
 
 Provider_List[["RTT_Table_Pivot"]] <-
   Provider_List[["RTT_Table_Pivot"]] %>%
   mutate_at("Effective_Snapshot_Date", as.Date)
-Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table_Pivot"]] %>% filter(Effective_Snapshot_Date >= "2019-01-01")
+# Provider_List[["RTT_Table_Pivot"]] <- Provider_List[["RTT_Table_Pivot"]] %>% filter(Effective_Snapshot_Date >= "2019-01-01")
 
 Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date_Year <-
   year( Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date)
