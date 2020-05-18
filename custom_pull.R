@@ -5,6 +5,7 @@ library(odbc)
 library(janitor)
 library(magrittr)
 library(lubridate)
+library(tidyr)
 
 ## Establish Connection ####
 
@@ -316,6 +317,10 @@ Provider_List[["Referrals"]] <- tbl(
   )
 ) %>% filter(SPECIALTY_CODE == "110", Organisation_Code == "RL4") %>% collect()
 
+
+
+
+
 ## Further wrangling ####
 
 Provider_List_Mutate <- Provider_List %>% imap( ~ {
@@ -344,17 +349,78 @@ Provider_List_Mutate <- Provider_List %>% imap( ~ {
   df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates &
                   is.na(Organisation_Code)))
   
-  
-if (.y == "Referrals") {
-  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Organisation_Code = first(Organisation_Code), Referrals_Sum = sum(ACTIVITY))
-  df[which(is.na(df$Referrals_Sum)),"Referrals_Sum"] <- 0
-  df[which(is.na(df$Organisation_Code)),"Organisation_Code"] <- Provider_List_Mutate[["Referrals"]]$Organisation_Code[1] ## first element will always be valid
-} else {
-  df <-
-    df %>% fill(-"Effective_Snapshot_Date", .direction = "down")
-}
+  df <- df %>% fill(-"Effective_Snapshot_Date", .direction = "down")
+
   return(df)
 })
+
+## Further Wrangling for Referrals ####
+
+df <- Provider_List[["Referrals"]]
+df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
+df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
+df <-
+  df %>% complete(Effective_Snapshot_Date = seq.Date(
+    as.Date("2019-01-01"),
+    max(df$Effective_Snapshot_Date),
+    by = "day"
+  ))
+df <-
+  df %>% arrange(Effective_Snapshot_Date)
+
+df$Effective_Snapshot_Date_Year <-
+  year(df$Effective_Snapshot_Date)
+df$Effective_Snapshot_Date_Month <-
+  month(df$Effective_Snapshot_Date)
+df$Effective_Snapshot_Date_Week <-
+  week(df$Effective_Snapshot_Date)
+
+df <-
+  df %>% fill(
+    "SPECIALTY_CODE",
+    "SPECIALTY_DESC",
+    "Organisation_Code",
+    "SERVICE_PROVIDER_NAME",
+    .direction = "down"
+  )
+df[which(is.na(df$ACTIVITY)), "ACTIVITY"] <- 0
+
+
+Provider_List_Mutate[["Referrals_MonthWeek"]] <- df %>% group_by(
+  Effective_Snapshot_Date_Year,
+  Effective_Snapshot_Date_Month,
+  Effective_Snapshot_Date_Week
+) %>%
+  summarise(
+    Organisation_Code = first(Organisation_Code),
+    Activity_Sum = sum(ACTIVITY)
+  ) %>%
+  arrange(
+    Effective_Snapshot_Date_Year,
+    Effective_Snapshot_Date_Month,
+    Effective_Snapshot_Date_Week
+  ) %>% 
+  mutate(Propn = round(Activity_Sum/sum(Activity_Sum), 3))
+
+Provider_List_Mutate[["Referrals_Week"]] <-
+  Provider_List_Mutate[["Referrals_MonthWeek"]] %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
+    Organisation_Code = unique(Organisation_Code),
+    Referrals_Sum = sum(Activity_Sum)
+  )
+Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
+  with(
+    Provider_List_Mutate[["Referrals_Week"]],
+    paste0(
+      Effective_Snapshot_Date_Year,
+      "-",
+      Effective_Snapshot_Date_Week %>% map( ~ if (str_length(.x) == 1)
+        paste0("0", .x)
+        else
+          .x)
+    )
+  )
+
+rm(df)
 
 ## Check has cols ####
 
