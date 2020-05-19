@@ -29,12 +29,13 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
                        month = month(day)
 )
 
-## Specify Parameters ####
+## Function Code ####
 
-Provider_Code <- "RL4"
-
-start <- Sys.time()
-start
+Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code) {
+  
+  ## Time ####
+  
+  start <- Sys.time()
   
   ## Create Empty List Container ####
   
@@ -57,6 +58,8 @@ start
       con = con
     )
   ) %>% collect()
+  
+  cat("1/7) Theatres pulled\n")
   
   ## Cancelled Elective Operations ####
   
@@ -222,6 +225,8 @@ start
   Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
   Provider_List[["RTT_Table_Pivot"]] %<>% rename("RTT_Referrals" = "New.RTT.Periods...All.Patients")
   
+  cat("2/7) RTT pulled\n")
+  
 
   ## Occupied Beds - Daycare Quarterly ####
   
@@ -241,6 +246,8 @@ start
     )
   ) %>% select(-Specialty) %>% collect()
   
+  cat("3/7) Occupied Beds Day pulled\n")
+  
   ## Occupied Beds - Overnight Quarterly ####
   
   Provider_List[["Occupied_Beds_Overnight"]] <- tbl(
@@ -258,6 +265,8 @@ start
       con = con
     )
   ) %>% select(-Specialty) %>% collect()
+  
+  cat("4/7) Occupied Beds Overnight pulled\n")
   
   ## Staffing - Medical ####
   
@@ -293,6 +302,8 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   Provider_List[["Staffing_Medical_Sum"]] %<>% mutate(Medic_Sum = rowSums(select(., -Effective_Snapshot_Date, -Organisation_Code)))
   Provider_List[["Staffing_Medical_Sum"]] %<>% select(Effective_Snapshot_Date, Organisation_Code, Consultant, Medic_Sum)
   Provider_List[["Staffing_Medical"]] <- NULL
+  
+  cat("5/7) Medical Staff pulled\n")
   
   ## X Staffing - Non-Medical ####
   
@@ -333,6 +344,8 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     )
   ) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available) * 100) %>% select(Effective_Snapshot_Date, Organisation_Code, Absence_PCT) %>% collect()
   
+  cat("6/7) Sickness pulled\n")
+  
   ## Referrals ####
   
   Provider_List[["Referrals"]] <- tbl(
@@ -359,16 +372,19 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     )
   ) %>% collect()
 
+  cat("7/7) Referrals pulled\n")
   
-  ## Further wrangling imap ####
+  ## Further wrangling imap for static metrics ####
+  
+  cat("Doing final wrangling..\n")
   
   Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Theatres", "Staffing_Medical_Sum", "Staffing_Sickness"))] %>% imap( ~ {
     df <- .x
     df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
     df <-
       df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
-        min(df$Effective_Snapshot_Date),
-        max(df$Effective_Snapshot_Date),
+        min(.$Effective_Snapshot_Date),
+        as.Date("2020-03-31"),
         by = "week"
       ))
     df <-
@@ -505,39 +521,54 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
                                                                                                                     IncompletePathways = sum(Incomplete.Pathways),
                                                                                                                     IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
                                                                                                                     RTT_Referrals = sum(RTT_Referrals))
-
-end <- Sys.time()
-
-end - start ## Time difference of 4.4852 mins
-
-
+  
 ## Check has cols ####
 
-Provider_List_Mutate %>% map(~ (
+Check <- Provider_List_Mutate %>% map(~ (
   colnames(.x) %in% c("Effective_Snapshot_Date", "Organisation_Code")
-) %>% sum() == 2)
+) %>% sum() == 2) %>% as_vector()
 
 ## Join ####
 
 ## Don't need ReferralsMonthWeek
 
+if (all(Check)) {
 Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Referrals_MonthWeek")], full_join, c("Effective_Snapshot_Date", "Organisation_Code"))
 Binded <- Binded %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
+}
+  
+## Time end ####
+  
+  end <- Sys.time()
+  
+  cat(end-start)
 
+return(Binded)
+}
 
-## Testing ####
+## Parameters ####
 
-df <- Provider_List[["Staffing_Sickness"]]
-df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
-df <-
-  df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
-    min(df$Effective_Snapshot_Date),
-    max(df$Effective_Snapshot_Date),
-    by = "week"
-  ))
-df <-
-  df %>% arrange(Effective_Snapshot_Date) %>% fill(-"Effective_Snapshot_Date", .direction = "down")
-df %<>% mutate(AbsenseRate = )
+outpatients <- Pull_From_SQL(Provider_Code = "RRK",
+                      Specialty = Specialty,
+                      Treatment_Code = paste0("C_", Specialty))
+
+## Write to CSV ####
+
+write_csv(outpatients, paste0(Provider_Code, "_", Specialty_name, ".csv"))
+
+## Ignore This ####
+
+# df <- Provider_List[["Staffing_Sickness"]]
+# df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
+# df <-
+#   df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
+#     min(df$Effective_Snapshot_Date),
+#     max(df$Effective_Snapshot_Date),
+#     by = "week"
+#   ))
+# df <-
+#   df %>% arrange(Effective_Snapshot_Date) %>% fill(-"Effective_Snapshot_Date", .direction = "down")
+# df %<>% mutate(AbsenseRate = )
 
 ## Save ####
 
