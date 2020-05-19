@@ -31,7 +31,7 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 ## Function Code ####
 
-Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code) {
+Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_name) {
   
   ## Time ####
   
@@ -284,13 +284,13 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code) {
 FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'') ",
       "AND Organisation_Code = '", Provider_Code, "' ",
+      "AND Specialty = '", Specialty_name, "' ",
       "' )"
       , con = con
     )
   ) %>% collect()
   
   Provider_List[["Staffing_Medical_Sum"]] <- Provider_List[["Staffing_Medical"]] %>%
-    filter(Specialty == "Trauma and orthopaedic surgery") %>% 
     group_by(Effective_Snapshot_Date, Grade) %>% 
     summarise(sum_FTE = sum(Total_FTE)) %>% 
     pivot_wider(names_from = Grade, values_from = sum_FTE) %>% 
@@ -548,13 +548,38 @@ return(Binded)
 
 ## Parameters ####
 
-outpatients <- Pull_From_SQL(Provider_Code = "RRK",
+Provider_Code <- "RRK"
+Specialty <- 110
+Specialty_name <- "Trauma and orthopaedic surgery"
+
+## Use function ####
+
+outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                       Specialty = Specialty,
-                      Treatment_Code = paste0("C_", Specialty))
+                      Treatment_Code = paste0("C_", Specialty),
+                      Specialty_name = Specialty_name)
 
 ## Write to CSV ####
 
-write_csv(outpatients, paste0(Provider_Code, "_", Specialty_name, ".csv"))
+write_csv(outpatients, paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"))
+
+## Available Specialties ####
+
+available_specialties <- tibble(specialties = c("Emergency Medicine", "Geriatric medicine", "Haematology", 
+  "Obstetrics and Gynaecology", "Ophthalmology", "Otolaryngology", 
+  "Trauma and orthopaedic surgery", "Anaesthetics", "Cardiology", 
+  "Cardio-thoracic surgery", "Chemical pathology", "Clinical oncology", 
+  "Clinical radiology", "Dermatology", "Endocrinology and diabetes mellitus", 
+  "Gastroenterology", "General (internal) medicine", "General surgery", 
+  "Genito-urinary medicine", "Histopathology", "Medical microbiology", 
+  "Medical oncology", "Neurology", "Oral and maxillo-facial surgery", 
+  "Orthodontics", "Paediatrics", "Palliative medicine", "Rehabilitation medicine", 
+  "Renal medicine", "Respiratory medicine", "Rheumatology", "Urology", 
+  "Vascular Surgery", "Acute Internal Medicine", "General psychiatry", 
+  "General Practice (GP) 6 month Training", "Public Health Medicine", 
+  "General Dental Practitioner", "Clinical neurophysiology", "General Med Practitioner", 
+  "Immunology", "Oral and Maxillofacial Surgery", "Gastro-enterology", 
+  "Oral Surgery"))
 
 ## Ignore This ####
 
