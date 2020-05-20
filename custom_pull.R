@@ -1,11 +1,14 @@
-library(tidyverse)
-library(dbplyr)
-library(DBI)
-library(odbc)
-library(janitor)
-library(magrittr)
-library(lubridate)
-library(tidyr)
+## Packages ####
+
+listOfPackages <- c("tidyverse","dbplyr","DBI","obdc","janitor",
+                    "lubridate","magrittr")
+
+for (i in listOfPackages){
+  if(! i %in% installed.packages()){
+    install.packages(i, dependencies = TRUE)
+  }
+  require(i)
+}
 
 ## Establish Connection ####
 
@@ -342,7 +345,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
       "' )",
       con = con
     )
-  ) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available) * 100) %>% select(Effective_Snapshot_Date, Organisation_Code, Absence_PCT) %>% collect()
+  ) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available)) %>% select(Effective_Snapshot_Date, Organisation_Code, Absence_PCT) %>% collect()
   
   cat("6/7) Sickness pulled\n")
   
@@ -537,6 +540,14 @@ Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Refe
 Binded <- Binded %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
 }
   
+## Create Derived columns ####
+  
+Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
+                  NoAdm_per_Bed = round(CompletedPathways_Admitted/(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT), 2),
+                  NoAdm_per_Consultant = round(CompletedPathways_Admitted/Consultant/(1-Absence_PCT), 2),
+                  NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
+                  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),)
+  
 ## Time end ####
   
   end <- Sys.time()
@@ -548,7 +559,7 @@ return(Binded)
 
 ## Parameters ####
 
-Provider_Code <- "RRK"
+Provider_Code <- "RL4"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
 
