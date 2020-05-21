@@ -1,14 +1,17 @@
 ## Packages ####
 
-listOfPackages <- c("tidyverse","dbplyr","DBI","obdc","janitor",
-                    "lubridate","magrittr")
+listOfPackages <- c("tidyverse", "dbplyr", "DBI", "odbc", "janitor", "lubridate", "magrittr")
 
-for (i in listOfPackages){
-  if(! i %in% installed.packages()){
-    install.packages(i, dependencies = TRUE)
+function_load <- function(pkgs) {
+  for (pkg in pkgs) {
+    if (!require(pkg, character.only = TRUE)) {
+      install.packages(pkg, dependencies = TRUE)
+      require(pkg, character.only = TRUE)
+    }
   }
-  require(i)
 }
+
+function_load(listOfPackages)
 
 ## Establish Connection ####
 
@@ -34,7 +37,7 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 ## Function Code ####
 
-Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_name) {
+Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_name, Propn_Recovered) {
   
   ## Time ####
   
@@ -517,14 +520,109 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
   ) %>% mutate_at(vars("Completed.Pathways.For.Admitted.Patients":"RTT_Referrals"),
                   ~ round(.*Propn, 0))
   
-  Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]] <-
-    Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date) %>% summarise(Organisation_Code = unique(Organisation_Code),
-                                                                                                                    CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
-                                                                                                                    CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
-                                                                                                                    IncompletePathways = sum(Incomplete.Pathways),
-                                                                                                                    IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
-                                                                                                                    RTT_Referrals = sum(RTT_Referrals))
+## Waiting List Wrangling ####
   
+Provider_List_Mutate[["Pathways_Monthly"]] <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month) %>% summarise(
+    Organisation_Code = unique(Organisation_Code),
+    CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
+    CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
+    IncompletePathways = sum(Incomplete.Pathways),
+    IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
+    RTT_Referrals = sum(RTT_Referrals)
+  )
+  
+X2019_01 <- which(Provider_List_Mutate[["Pathways_Monthly"]]$Effective_Snapshot_Date_Year == 2019 & Provider_List_Mutate[["Pathways_Monthly"]]$Effective_Snapshot_Date_Month == 1)
+Vector_Year <- Provider_List_Mutate[["Pathways_Monthly"]][X2019_01:nrow(Provider_List_Mutate[["Pathways_Monthly"]]),"Effective_Snapshot_Date_Year"] %>% pull()
+Vector_Month <- Provider_List_Mutate[["Pathways_Monthly"]][X2019_01:nrow(Provider_List_Mutate[["Pathways_Monthly"]]),"Effective_Snapshot_Date_Month"] %>% pull()
+
+walk2(Vector_Year,
+      Vector_Month,
+      ~ {
+        df <- Provider_List_Mutate[["Pathways_Monthly"]]
+        idx <- which(df$Effective_Snapshot_Date_Year == .x &
+                       df$Effective_Snapshot_Date_Month == .y)
+        
+        Provider_List_Mutate[["Pathways_Monthly"]][[idx, "Temp"]] <<-
+          df[[idx - 1, "IncompletePathways"]] -
+          (df[[idx, "CompletedPathways_NonAdmitted"]] + df[[idx, "CompletedPathways_Admitted"]]) +
+          df[[idx, "RTT_Referrals"]]
+        
+        Provider_List_Mutate[["Pathways_Monthly"]][[idx, "Leavers"]] <<- 
+          df[[idx, "IncompletePathways"]] - Provider_List_Mutate[["Pathways_Monthly"]][[idx, "Temp"]]
+        
+        Provider_List_Mutate[["Pathways_Monthly"]][[idx, "Leavers_Inverse"]] <<- Provider_List_Mutate[["Pathways_Monthly"]][[idx, "Leavers"]]*-1
+        
+      }) ## There is definitely a more effective way to do this, but it works so..
+
+## For unname
+
+X2019_01_Week <-
+  which(
+    Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date_Year == 2019 &
+      Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date_Month == 1 &
+      Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date_Week == 1
+  )
+Vector_Year_Week <-
+  Provider_List_Mutate[["Referrals_MonthWeek"]][X2019_01_Week:nrow(Provider_List_Mutate[["Referrals_MonthWeek"]]), "Effective_Snapshot_Date_Year"] %>% pull()
+Vector_Month_Week <-
+  Provider_List_Mutate[["Referrals_MonthWeek"]][X2019_01_Week:nrow(Provider_List_Mutate[["Referrals_MonthWeek"]]), "Effective_Snapshot_Date_Month"] %>% pull()
+Vector_Week_Week <-   
+  Provider_List_Mutate[["Referrals_MonthWeek"]][X2019_01_Week:nrow(Provider_List_Mutate[["Referrals_MonthWeek"]]), "Effective_Snapshot_Date_Week"] %>% pull()
+
+pwalk(list(Vector_Year_Week,
+           Vector_Month_Week,
+      Vector_Week_Week),
+      ~ {
+        df <- Provider_List_Mutate[["Referrals_MonthWeek"]]
+        idx <- which(df$Effective_Snapshot_Date_Year == ..1 &
+                       df$Effective_Snapshot_Date_Month == ..2 &
+                       df$Effective_Snapshot_Date_Week == ..3)
+        
+        idx_monthly <- which(Provider_List_Mutate[["Pathways_Monthly"]]$Effective_Snapshot_Date_Year == ..1 &
+                               Provider_List_Mutate[["Pathways_Monthly"]]$Effective_Snapshot_Date_Month == ..2)
+        
+        Provider_List_Mutate[["Referrals_MonthWeek"]][[idx, "Unname"]] <<- 
+          round(df[[idx, "Propn"]] *
+        Provider_List_Mutate[["Pathways_Monthly"]][[idx_monthly, "Leavers"]], 0)
+        Provider_List_Mutate[["Referrals_MonthWeek"]][[idx, "Unname_Inverse"]] <<- Provider_List_Mutate[["Referrals_MonthWeek"]][[idx, "Unname"]]*-1
+      }
+)
+
+## Create final table
+
+Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]] <-
+  Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date) %>% summarise(
+    Organisation_Code = unique(Organisation_Code),
+    CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
+    CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
+    IncompletePathways = sum(Incomplete.Pathways),
+    IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
+    RTT_Referrals = sum(RTT_Referrals),
+    RTT_NotSeen = sum(Unname_Inverse),
+    NotSeen_PCT_Recovered = Propn_Recovered,
+    NotSeen_PCT_Dead = 1-Propn_Recovered,
+    NotSeen_Recovered = RTT_NotSeen*NotSeen_PCT_Recovered,
+    NotSeen_Dead =  RTT_NotSeen*NotSeen_PCT_Dead
+  )
+
+Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][["WaitingList"]] <- NA_real_
+WL_idx <- which(Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]]$Effective_Snapshot_Date == "2019-01")
+Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][[WL_idx, "WaitingList"]] <-
+  (Provider_List_Mutate[["Pathways_Monthly"]] %>%
+  filter(Effective_Snapshot_Date_Year == 2018,
+         Effective_Snapshot_Date_Month == 12) %>%
+  pull(IncompletePathways)) - (with(Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][WL_idx,], CompletedPathways_Admitted+CompletedPathways_NonAdmitted+RTT_NotSeen)) + Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][[WL_idx,"RTT_Referrals"]]
+Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][WL_idx:nrow(Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]]),] %<>% 
+  mutate(WaitingList =
+           lag(
+             first(WaitingList) - (
+               cumsum(CompletedPathways_Admitted) + cumsum(CompletedPathways_NonAdmitted) + cumsum(RTT_NotSeen)
+             ) + cumsum(RTT_Referrals),
+             default = first(WaitingList)
+           ))
+
+Provider_List_Mutate[["Pathways_Monthly"]] <- NULL ## don't need anymore
+
 ## Check has cols ####
 
 Check <- Provider_List_Mutate %>% map(~ (
@@ -552,23 +650,25 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
   
   end <- Sys.time()
   
-  cat(end-start)
+  print(end-start)
 
 return(Binded)
 }
 
 ## Parameters ####
 
-Provider_Code <- "RL4"
+Provider_Code <- "RRK"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
+Propn_Recovered <- 0.5
 
 ## Use function ####
 
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                       Specialty = Specialty,
                       Treatment_Code = paste0("C_", Specialty),
-                      Specialty_name = Specialty_name)
+                      Specialty_name = Specialty_name,
+                      Propn_Recovered = Propn_Recovered)
 
 ## Write to CSV ####
 
