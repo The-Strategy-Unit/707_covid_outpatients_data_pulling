@@ -84,69 +84,6 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
   #   )
   #   ) %>% filter(Organisation_Code == Provider_Code) %>% collect()
   
-  ## X RTT Incomplete Monthly (in full) ####
-  
-  # Provider_List[["RTT_Incomplete"]] <- tbl(
-  #   con,
-  #   sql("SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT  Organisation_Code
-  # 		, Treatment_Function_Code
-  # 		, Number_Of_Weeks_Since_Referral
-  # 		, Number_Of_Incomplete_Pathways
-  # 		, Number_Of_Incomplete_Pathways_with_DTA
-  # 		, Effective_Snapshot_Date
-  # 	FROM [central_midlands_csu_UserDB].[RTT].[Incomplete_Pathways_Provider1]
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )")
-  # ) %>% filter(Organisation_Code == Provider_Code, Treatment_Function_Code == 100) %>% collect()
-  # 
-  # Provider_List[["RTT_Incomplete_100"]] <- Provider_List[["RTT_Incomplete"]] %>% filter(Treatment_Function_Code == 100)
-  
-  ## X RTT Complete NonAdmitted Monthly (in full) ####
-  
-  # Provider_List[["RTT_Complete_NonAdm"]] <- tbl(
-  #   con,
-  #   sql(
-  #     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-  # 		, Treatment_Function_Code
-  # 		, Number_Of_Weeks_Since_Referral
-  # 		, Number_Of_Completed_NonAdmitted_Pathways
-  # 		, Effective_Snapshot_Date
-  # 	FROM [central_midlands_csu_UserDB].[RTT].[Completed_NonAdmitted_Pathways_Provider1]
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  #   )
-  # ) %>% filter(Organisation_Code == Provider_Code) %>% collect()
-  
-  ## X RTT Completed Admitted Monthly (in full) ####
-  
-  # Provider_List[["RTT_Complete_Adm"]] <- tbl(
-  #   con,
-  #   sql(
-  #     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-  # 		, Treatment_Function_Code
-  # 		, Number_Of_Weeks_Since_Referral
-  # 		, Number_Of_Completed_Admitted_Pathways
-  # 		, Effective_Snapshot_Date
-  # 	FROM [central_midlands_csu_UserDB].[RTT].[Completed_Admitted_Pathways_Provider1]
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  #   )
-  # ) %>% filter(Organisation_Code == Provider_Code) %>% collect()
-  
-  ## X RTT Referrals ####
-  
-  # Provider_List[["RTT_Referrals"]] <- tbl(
-  #   con,
-  #   sql(
-  #     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
-  # 		, Treatment_Function_Code
-  # 		, Number_Of_Incomplete_Pathways
-  # 		, Number_Of_Incomplete_Pathways_With_DTA_For_Treatment
-  # 		, Number_Of_New_RTT_Clock_Starts_In_Month	Report_Period_Length
-  # 		, Effective_Snapshot_Date
-  # 	FROM [central_midlands_csu_UserDB].[RTT].[New_Data_Items_Provider1]
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  #   )
-  # ) %>% filter(Organisation_Code == Provider_Code, Treatment_Function_Code == "110") %>% collect()
-  # Provider_List[["RTT_Referrals"]] <- Provider_List[["RTT_Referrals"]] %>% select(Effective_Snapshot_Date, Organisation_Code, Report_Period_Length) %>% rename(Num_RTT_Referrals = Report_Period_Length)
-  
   ## RTT Full Table ####
   
   Provider_List[["RTT_Table"]] <- tbl(
@@ -652,14 +589,21 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
   
   print(end-start)
 
-return(Binded)
+  return(
+    list(
+      Provider_List = Provider_List,
+      Provider_List_Mutate = Provider_List_Mutate,
+      Binded = Binded
+    )
+  )
+  
 }
 
 ## Parameters ####
 
-Provider_Code <- "RRK"
-Specialty <- 110
-Specialty_name <- "Trauma and orthopaedic surgery"
+Provider_Code <- "RL4"
+Specialty <- 301
+Specialty_name <- "Gastroenterology"
 Propn_Recovered <- 0.5
 
 ## Use function ####
@@ -670,11 +614,17 @@ outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                       Specialty_name = Specialty_name,
                       Propn_Recovered = Propn_Recovered)
 
+## See full script inside RStudio ####
+
+outpatients[["Binded"]] %>% view
+
 ## Write to CSV ####
 
-write_csv(outpatients, paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"))
+write_csv(outpatients[["Binded"]], paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"))
 
 ## Available Specialties ####
+
+# https://www.datadictionary.nhs.uk/web_site_content/supporting_information/main_specialty_and_treatment_function_codes_table.asp
 
 available_specialties <- tibble(specialties = c("Emergency Medicine", "Geriatric medicine", "Haematology", 
   "Obstetrics and Gynaecology", "Ophthalmology", "Otolaryngology", 
@@ -691,6 +641,14 @@ available_specialties <- tibble(specialties = c("Emergency Medicine", "Geriatric
   "General Dental Practitioner", "Clinical neurophysiology", "General Med Practitioner", 
   "Immunology", "Oral and Maxillofacial Surgery", "Gastro-enterology", 
   "Oral Surgery"))
+
+## Available Specialty Codes ####
+
+available_specialty_codes <- structure(list(Treatment_Function_Code = c("X01", "C_300", "C_502", 
+                                           "C_120", "C_340", "C_410", "C_999", "C_100", "C_301", "C_330", 
+                                           "C_430", "C_160", "C_140", "C_101", "C_170", "C_400", "C_320", 
+                                           "C_130", "C_110")), class = c("tbl_df", "tbl", "data.frame"), row.names = c(NA, 
+                                                                                                                       -19L))
 
 ## Ignore This ####
 
