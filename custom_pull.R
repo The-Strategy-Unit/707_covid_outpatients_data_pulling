@@ -347,7 +347,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates &
                             is.na(Organisation_Code)))
     
-    df <- df %>% fill(-"Effective_Snapshot_Date", .direction = "down")
+    df <- df %>% fill(-"Effective_Snapshot_Date", .direction = if (.y %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Staffing_Medical_Sum")) "up" else "down")
     
     return(df)
   })
@@ -548,7 +548,7 @@ Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][[WL_idx, "WaitingList
   (Provider_List_Mutate[["Pathways_Monthly"]] %>%
   filter(Effective_Snapshot_Date_Year == 2018,
          Effective_Snapshot_Date_Month == 12) %>%
-  pull(IncompletePathways)) - (with(Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][WL_idx,], CompletedPathways_Admitted+CompletedPathways_NonAdmitted+RTT_NotSeen)) + Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][[WL_idx,"RTT_Referrals"]]
+  pull(IncompletePathways))
 Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][WL_idx:nrow(Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]]),] %<>% 
   mutate(WaitingList =
            lag(
@@ -581,7 +581,9 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
                   NoAdm_per_Bed = round(CompletedPathways_Admitted/(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT), 2),
                   NoAdm_per_Consultant = round(CompletedPathways_Admitted/Consultant/(1-Absence_PCT), 2),
                   NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
-                  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),)
+                  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),
+                  Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1)) %>% 
+  select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT)
   
 ## Time end ####
   
@@ -602,8 +604,8 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
 ## Parameters ####
 
 Provider_Code <- "RL4"
-Specialty <- 301
-Specialty_name <- "Gastroenterology"
+Specialty <- 110
+Specialty_name <- "Trauma and orthopaedic surgery"
 Propn_Recovered <- 0.5
 
 ## Use function ####
