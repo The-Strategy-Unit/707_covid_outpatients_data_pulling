@@ -55,7 +55,6 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
       "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Organisation_Code
 		, Effective_Snapshot_Date
 		, No_of_Operating_Theatres
-		, No_of_Operating_Theatres_Day_Case_Only
 	FROM [central_midlands_csu_UserDB].[Cancelled_Elec_Ops].[Supporting_Facilities1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'') 
 	AND Organisation_Code = '", Provider_Code, "'", "
@@ -583,7 +582,7 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
                   NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
                   NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),
                   Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1)) %>% 
-  select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT)
+  select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT, -contains("NotSeen_PCT"), -contains("IncompletePathways"))
   
 ## Time end ####
   
