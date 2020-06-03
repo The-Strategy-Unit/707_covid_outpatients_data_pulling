@@ -37,7 +37,7 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 ## Function Code ####
 
-Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_name, Propn_Recovered) {
+Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_Code, Specialty_name) {
   
   ## Time ####
   
@@ -64,7 +64,7 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
     )
   ) %>% collect()
   
-  cat("1/7) Theatres pulled\n")
+  cat("1/9) Theatres pulled\n")
   
   ## Cancelled Elective Operations ####
   
@@ -167,7 +167,7 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
   Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
   Provider_List[["RTT_Table_Pivot"]] %<>% rename("RTT_Referrals" = "New.RTT.Periods...All.Patients")
   
-  cat("2/7) RTT pulled\n")
+  cat("2/9) RTT pulled\n")
   
 
   ## Occupied Beds - Daycare Quarterly ####
@@ -188,7 +188,7 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
     )
   ) %>% select(-Specialty) %>% collect()
   
-  cat("3/7) Occupied Beds Day pulled\n")
+  cat("3/9) Occupied Beds Day pulled\n")
   
   ## Occupied Beds - Overnight Quarterly ####
   
@@ -208,7 +208,7 @@ Pull_From_SQL <- function(Provider_Code, Specialty, Treatment_Code, Specialty_na
     )
   ) %>% select(-Specialty) %>% collect()
   
-  cat("4/7) Occupied Beds Overnight pulled\n")
+  cat("4/9) Occupied Beds Overnight pulled\n")
   
   ## Staffing - Medical ####
   
@@ -245,7 +245,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   Provider_List[["Staffing_Medical_Sum"]] %<>% select(Effective_Snapshot_Date, Organisation_Code, Consultant, Medic_Sum)
   Provider_List[["Staffing_Medical"]] <- NULL
   
-  cat("5/7) Medical Staff pulled\n")
+  cat("5/9) Medical Staff pulled\n")
   
   ## X Staffing - Non-Medical ####
   
@@ -286,7 +286,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     )
   ) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available)) %>% select(Effective_Snapshot_Date, Organisation_Code, Absence_PCT) %>% collect()
   
-  cat("6/7) Sickness pulled\n")
+  cat("6/9) Sickness pulled\n")
   
   ## Referrals ####
   
@@ -313,8 +313,116 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
       con = con
     )
   ) %>% collect()
+  
+  cat("7/9) Referrals pulled\n")
+  
+  ## Patient Left Not Seen (NotSeen_Recovered) ####
+  
+  Provider_List[["NotSeen_Recovered"]] <- tbl(
+    con,
+    build_sql(
+      "SELECT *
+        FROM (
+          SELECT 
+          ProviderCode
+          , ProviderName
+          , TreatmentSpecialtyCode
+          , TreatmentSpecialtyDescription
+          , [AppointmentDate]
+          , Count(*) AS Activity
+          FROM [EAT_Reporting].[dbo].[tbOutpatient]
+          WHERE [PathwayReferralToTreatmentStatusCode] ='35'
+          AND Iscosted = 1
+          AND IsExcluded = 0
+          AND [AppointmentDate] >= '2019-01-01 00:00:00.000'
+          GROUP BY  ProviderCode
+          , ProviderName
+          , TreatmentSpecialtyCode
+          , TreatmentSpecialtyDescription
+          , [AppointmentDate]
+          
+          UNION ALL
+          
+          SELECT 
+          ProviderCode
+          , ProviderName
+          , TreatmentSpecialtyCode
+          , TreatmentSpecialtyDescription
+          , DischargeDate
+          , Count(*) AS Activity
+          FROM [EAT_Reporting].[dbo].[tbInpatientEpisodes]
+          WHERE [PathwayReferralToTreatmentStatusCode] ='35'
+          AND IsDominant = 1
+          AND Isexcluded = 0
+          AND Iscosted = 1
+          AND DischargeDate >= '2019-01-01 00:00:00.000'
+          GROUP BY  ProviderCode
+          , ProviderName
+          , TreatmentSpecialtyCode
+          , TreatmentSpecialtyDescription
+          , DischargeDate
+        ) AS DF
+      WHERE DF.TreatmentSpecialtyCode = ", as.character(Specialty), 
+		" AND DF.ProviderCode = ", Provider_Code_00, 
+  con = con
+    )
+  ) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
+  
+  cat("8/9) NotSeen_Recovered pulled\n")
+  
+  ## Patient Died Before Treatment ####
 
-  cat("7/7) Referrals pulled\n")
+  Provider_List[["NotSeen_Died"]] <- tbl(
+    con,
+    build_sql(
+      " SELECT *
+ FROM (
+ SELECT 
+		  ProviderCode
+		, ProviderName
+		, TreatmentSpecialtyCode
+		, TreatmentSpecialtyDescription
+		, [AppointmentDate]
+		, Count(*) AS Activity
+  FROM [EAT_Reporting].[dbo].[tbOutpatient]
+  WHERE [PathwayReferralToTreatmentStatusCode] ='36'
+		AND Iscosted = 1
+		AND IsExcluded = 0
+		AND [AppointmentDate] >= '2019-01-01 00:00:00.000'
+ GROUP BY  ProviderCode
+		, ProviderName
+		, TreatmentSpecialtyCode
+		, TreatmentSpecialtyDescription
+		, [AppointmentDate]
+
+UNION ALL
+
+SELECT 
+		  ProviderCode
+		, ProviderName
+		, TreatmentSpecialtyCode
+		, TreatmentSpecialtyDescription
+		, DischargeDate
+		, Count(*) AS Activity
+  FROM [EAT_Reporting].[dbo].[tbInpatientEpisodes]
+  WHERE [PathwayReferralToTreatmentStatusCode] ='36'
+		AND IsDominant = 1
+		AND Isexcluded = 0
+		AND Iscosted = 1
+		AND DischargeDate >= '2019-01-01 00:00:00.000'
+ GROUP BY  ProviderCode
+		, ProviderName
+		, TreatmentSpecialtyCode
+		, TreatmentSpecialtyDescription
+		, DischargeDate
+		) AS DF
+		WHERE DF.TreatmentSpecialtyCode = ", as.character(Specialty), 
+		" AND DF.ProviderCode = ", Provider_Code_00,
+      con = con
+    )
+  ) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
+  
+  cat("9/9) NotSeen_Died pulled\n")
   
   ## Further wrangling imap for static metrics ####
   
@@ -350,6 +458,61 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     
     return(df)
   })
+  
+  ## Further Wrangling for Patient NotSeen_Dead + NotSeen_Recovered ####
+  
+  walk(c("NotSeen_Recovered", "NotSeen_Died"), ~ {
+  df <- Provider_List[[.x]]
+  df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
+  # df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
+  df <-
+    df %>% complete(Effective_Snapshot_Date = seq.Date(
+      as.Date("2019-01-01"),
+      max(df$Effective_Snapshot_Date),
+      by = "day"
+    ))
+  df <-
+    df %>% arrange(Effective_Snapshot_Date)
+  
+  df$Effective_Snapshot_Date_Year <-
+    year(df$Effective_Snapshot_Date)
+  df$Effective_Snapshot_Date_Month <-
+    month(df$Effective_Snapshot_Date)
+  df$Effective_Snapshot_Date_Week <-
+    week(df$Effective_Snapshot_Date)
+  
+  df <-
+    df %>% fill(
+      "ProviderCode",
+      "ProviderName",
+      "TreatmentSpecialtyCode",
+      "TreatmentSpecialtyDescription",
+      .direction = "downup"
+    )
+  df[which(is.na(df$Activity)), "Activity"] <- 0
+  
+  df <- df %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
+    Organisation_Code = unique(ProviderCode),
+    !!paste0(.x) := sum(Activity)
+  )
+  df$Effective_Snapshot_Date <-
+    with(
+      df,
+      paste0(
+        Effective_Snapshot_Date_Year,
+        "-",
+        Effective_Snapshot_Date_Week %>% map(~ if (str_length(.x) == 1) {
+          paste0("0", .x)
+        } else {
+          .x
+        })
+      )
+    )
+  df %<>% ungroup() %>% select(Effective_Snapshot_Date, Organisation_Code, .x)
+  
+  Provider_List_Mutate[[paste0(.x)]] <<- df
+  }
+  )
   
   ## Further wrangling for referrals ####
   
@@ -534,11 +697,7 @@ Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]] <-
     IncompletePathways = sum(Incomplete.Pathways),
     IncompletePathways_DTA = sum(Incomplete.Pathways.with.DTA),
     RTT_Referrals = sum(RTT_Referrals),
-    RTT_NotSeen = sum(Unname_Inverse),
-    NotSeen_PCT_Recovered = Propn_Recovered,
-    NotSeen_PCT_Dead = 1-Propn_Recovered,
-    NotSeen_Recovered = RTT_NotSeen*NotSeen_PCT_Recovered,
-    NotSeen_Dead =  RTT_NotSeen*NotSeen_PCT_Dead
+    RTT_NotSeen = sum(Unname_Inverse)
   )
 
 Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]][["WaitingList"]] <- NA_real_
@@ -562,16 +721,16 @@ Provider_List_Mutate[["Pathways_Monthly"]] <- NULL ## don't need anymore
 ## Check has cols ####
 
 Check <- Provider_List_Mutate %>% map(~ (
-  colnames(.x) %in% c("Effective_Snapshot_Date", "Organisation_Code")
-) %>% sum() == 2) %>% as_vector()
+  colnames(.x) %in% c("Effective_Snapshot_Date")
+) %>% sum() == 1) %>% as_vector()
 
 ## Join ####
 
 ## Don't need ReferralsMonthWeek
 
 if (all(Check)) {
-Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Referrals_MonthWeek")], full_join, c("Effective_Snapshot_Date", "Organisation_Code"))
-Binded <- Binded %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
+Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Referrals_MonthWeek")], full_join, c("Effective_Snapshot_Date"))
+Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
 }
   
 ## Create Derived columns ####
@@ -581,7 +740,12 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
                   NoAdm_per_Consultant = round(CompletedPathways_Admitted/Consultant/(1-Absence_PCT), 2),
                   NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
                   NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),
-                  Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1)) %>% 
+                  Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1),
+                  Transfers = lead(WaitingList) - ( WaitingList
+                    + GP_Referrals - (
+                      NotSeen_Recovered + NotSeen_Died + CompletedPathways_Admitted + CompletedPathways_NonAdmitted
+                    )
+                  )) %>% 
   select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT, -contains("NotSeen_PCT"), -contains("IncompletePathways"))
   
 ## Time end ####
@@ -603,17 +767,17 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
 ## Parameters ####
 
 Provider_Code <- "RL4"
+Provider_Code_00 <- "RL400"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
-Propn_Recovered <- 0.5
+# Propn_Recovered <- 0.5 don't need anymore
 
 ## Use function ####
 
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                       Specialty = Specialty,
                       Treatment_Code = paste0("C_", Specialty),
-                      Specialty_name = Specialty_name,
-                      Propn_Recovered = Propn_Recovered)
+                      Specialty_name = Specialty_name)
 
 ## See full script inside RStudio ####
 
