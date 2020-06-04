@@ -775,6 +775,7 @@ Specialty_name <- "Trauma and orthopaedic surgery"
 ## Use function ####
 
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
+                             Provider_Code_00 = Provider_Code_00,
                       Specialty = Specialty,
                       Treatment_Code = paste0("C_", Specialty),
                       Specialty_name = Specialty_name)
