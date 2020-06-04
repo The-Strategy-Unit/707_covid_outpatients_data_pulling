@@ -741,11 +741,8 @@ Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
                   NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
                   NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),
                   Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1),
-                  Transfers = lead(WaitingList) - ( WaitingList
-                    + GP_Referrals - (
-                      NotSeen_Recovered + NotSeen_Died + CompletedPathways_Admitted + CompletedPathways_NonAdmitted
-                    )
-                  )) %>% 
+                  Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
+                  ) %>% 
   select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT, -contains("NotSeen_PCT"), -contains("IncompletePathways"))
   
 ## Time end ####
