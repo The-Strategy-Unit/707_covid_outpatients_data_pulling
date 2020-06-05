@@ -37,7 +37,7 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 ## Function Code ####
 
-Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_Code, Specialty_name) {
+Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_Code, Specialty_name, Final_Date) {
   
   ## Time ####
   
@@ -65,23 +65,6 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
   ) %>% collect()
   
   cat("1/9) Theatres pulled\n")
-  
-  ## Cancelled Elective Operations ####
-  
-  # Provider_List[["Cancelled_Elective_Ops"]] <- tbl(
-  #   con, 
-  #   sql(
-  #     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT 
-  #      Provider_Code AS Organisation_Code
-  # 		,Last_Minute_Cancelled_Ops_Non_Clinical_Reason
-  # 		,Number_Of_Cancellations_On_The_Day_Of_Surgery
-  # 		,Patients_Not_Treated_Within_X_Of_Cancellation
-  # 		,X
-  # 		,Effective_Snapshot_Date
-  #  FROM [central_midlands_csu_UserDB].[Cancelled_Elec_Ops].[Cancelled_Elective_Ops_By_Provider1]#
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  #   )
-  #   ) %>% filter(Organisation_Code == Provider_Code) %>% collect()
   
   ## RTT Full Table ####
   
@@ -246,25 +229,6 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   Provider_List[["Staffing_Medical"]] <- NULL
   
   cat("5/9) Medical Staff pulled\n")
-  
-  ## X Staffing - Non-Medical ####
-  
-  # Provider_List[["Staffing_NonMed"]] <- tbl(
-  #   con,
-  #   sql(
-  #     "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT    Organisation_Code
-  # 		, Main_Staff_Group
-  # 		, Staff_Group_1
-  # 		, Staff_Group_2
-  # 		, Area
-  # 		, Level
-  # 		, AfC_Band
-  # 		, Total_FTE
-  # 		, Effective_Snapshot_Date
-  # FROM [central_midlands_csu_UserDB].[NHS_Workforce].[NonMedical_Staff1]
-  # 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')' )"
-  #   )
-  # ) %>% filter(Organisation_Code == Provider_Code) %>% collect()
   
   ## Staffing HCHS Sickness ####
   
@@ -434,7 +398,7 @@ SELECT
     df <-
       df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
         min(.$Effective_Snapshot_Date),
-        as.Date("2020-03-31"),
+        as.Date(Final_Date),
         by = "week"
       ))
     df <-
@@ -468,7 +432,7 @@ SELECT
   df <-
     df %>% complete(Effective_Snapshot_Date = seq.Date(
       as.Date("2019-01-01"),
-      max(df$Effective_Snapshot_Date),
+      as.Date(Final_Date),
       by = "day"
     ))
   df <-
@@ -736,16 +700,62 @@ Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detec
 ## Create Derived columns ####
   
 Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
-                  NoAdm_per_Bed = round(CompletedPathways_Admitted/(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT), 2),
-                  NoAdm_per_Consultant = round(CompletedPathways_Admitted/Consultant/(1-Absence_PCT), 2),
-                  NoAdm_per_Theatre = round(CompletedPathways_Admitted/No_of_Operating_Theatres, 2),
-                  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted/Consultant/(1-Absence_PCT), 2),
-                  Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1),
-                  Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
+                   PopNeed_GP = GP_Referrals,
+                   PopNeed_Other = OtherReferrals,
+                  Total_No_Beds = round(Number_Of_Beds_DAY+Number_Of_Beds_NIGHT, 1)
                   ) %>% 
   select(-Number_Of_Beds_DAY, -Number_Of_Beds_NIGHT, -contains("NotSeen_PCT"), -contains("IncompletePathways"))
 
-Binded %<>% select(Effective_Snapshot_Date, WaitingList, Transfers, GP_Referrals, OtherReferrals, RTT_Referrals, CompletedPathways_Admitted, CompletedPathways_NonAdmitted, RTT_NotSeen, Total_No_Beds, Consultant, No_of_Operating_Theatres, Absence_PCT, Medic_Sum, NoAdm_per_Bed, NoAdm_per_Consultant, NoAdm_per_Theatre, NoSeen_per_Consultant)
+## Reorder ####
+
+Binded %<>% select(Effective_Snapshot_Date, WaitingList, PopNeed_GP, PopNeed_Other, GP_Referrals, OtherReferrals, RTT_Referrals, CompletedPathways_Admitted, CompletedPathways_NonAdmitted, RTT_NotSeen, NotSeen_Recovered, NotSeen_Died, Total_No_Beds, Consultant, No_of_Operating_Theatres, Absence_PCT, Medic_Sum)
+
+## Fill Yellow Columns ####
+
+Binded %<>% fill(c("GP_Referrals", "OtherReferrals", "RTT_Referrals", "CompletedPathways_Admitted", "Total_No_Beds", "Consultant", "Medic_Sum", "CompletedPathways_NonAdmitted", "RTT_NotSeen"), .direction = "down")
+
+## Derived Final Cols ####
+
+Binded %<>% mutate(
+  NoAdm_per_Bed = round(
+    CompletedPathways_Admitted / Total_No_Beds,
+    2
+  ),
+  NoAdm_per_Consultant = round(CompletedPathways_Admitted / Consultant / (1 -
+                                                                            Absence_PCT), 2),
+  NoAdm_per_Theatre = round(CompletedPathways_Admitted / No_of_Operating_Theatres, 2),
+  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted / Consultant /
+                                  (1 - Absence_PCT), 2),
+  Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
+)
+
+for (colx in c("PopNeed_GP", "PopNeed_Other")) {
+  iwalk(Binded[[colx]], ~ {
+    if (is.na(.x)) {
+      Relevant_Date <- Binded[[.y, "Effective_Snapshot_Date"]]
+      New_Date <-
+        paste0(as.integer(str_sub(Relevant_Date, 1, 4)) - 1,
+               "-",
+               str_sub(Relevant_Date, 6, 7))
+      
+      Binded[[.y, colx]] <<-
+        Binded[[which(Binded$Effective_Snapshot_Date == New_Date), colx]]
+      
+    }
+    
+  })
+}
+
+walk(which(is.na(Binded$WaitingList)), ~ {
+  
+  relevant_row <- Binded[.x-1,]
+  
+  Binded[[.x, "WaitingList"]] <<- with(relevant_row, WaitingList+GP_Referrals+OtherReferrals-(CompletedPathways_Admitted+CompletedPathways_NonAdmitted+NotSeen_Recovered+NotSeen_Died))
+  
+}
+)
+
+Binded %<>% select(Effective_Snapshot_Date, WaitingList, Transfers, everything())
   
 ## Time end ####
   
@@ -769,7 +779,7 @@ Provider_Code <- "RL4"
 Provider_Code_00 <- "RL400"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
-# Propn_Recovered <- 0.5 don't need anymore
+Final_Date <- "2020-06-01" ## as YY-MM-DD
 
 ## Use function ####
 
@@ -777,7 +787,8 @@ outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                              Provider_Code_00 = Provider_Code_00,
                       Specialty = Specialty,
                       Treatment_Code = paste0("C_", Specialty),
-                      Specialty_name = Specialty_name)
+                      Specialty_name = Specialty_name, 
+                      Final_Date = Final_Date)
 
 ## See full script inside RStudio ####
 
