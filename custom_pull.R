@@ -398,7 +398,7 @@ SELECT
     df <-
       df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
         min(.$Effective_Snapshot_Date),
-        as.Date(Final_Date),
+        as.Date(Final_Date, format = "%Y-%m-%d"),
         by = "week"
       ))
     df <-
@@ -755,7 +755,13 @@ walk(which(is.na(Binded$WaitingList)), ~ {
 }
 )
 
-Binded %<>% select(Effective_Snapshot_Date, WaitingList, Transfers, everything())
+Binded %<>% select(Effective_Snapshot_Date, WaitingList, everything(), Transfers)
+
+Binded %<>% add_column(Mortality_Rate = NA, .after = "Medic_Sum") %>% 
+  add_column(Diagnostics = NA, .after = "NoAdm_per_Theatre") %>% 
+  add_column(NoAdm_per_Diagnostic = NA, .after = "Diagnostics") %>% 
+  add_column(NoSeen_per_Diagnostic = NA, .after = "NoSeen_per_Consultant") %>% 
+  add_column(PCT_Recover = NA, .after = "NoSeen_per_Diagnostic")
   
 ## Time end ####
   
@@ -779,7 +785,7 @@ Provider_Code <- "RL4"
 Provider_Code_00 <- "RL400"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
-Final_Date <- "2020-06-01" ## as YY-MM-DD
+Final_Date <- "2020-06-31" ## as YY-MM-DD
 
 ## Use function ####
 
@@ -796,7 +802,7 @@ outpatients[["Binded"]] %>% view
 
 ## Write to CSV ####
 
-write_csv(outpatients[["Binded"]], paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"))
+write_csv(outpatients[["Binded"]], paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"), na = '')
 
 ## Available Specialties ####
 
