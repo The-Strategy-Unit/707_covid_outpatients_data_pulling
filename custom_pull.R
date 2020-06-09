@@ -785,7 +785,7 @@ Provider_Code <- "RL4"
 Provider_Code_00 <- "RL400"
 Specialty <- 110
 Specialty_name <- "Trauma and orthopaedic surgery"
-Final_Date <- "2020-06-31" ## as YY-MM-DD
+Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 ## Use function ####
 
