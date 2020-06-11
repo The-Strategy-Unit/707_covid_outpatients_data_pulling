@@ -161,20 +161,32 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
   Provider_List[["Staffing_Medical"]] <- tbl(
     con,
     build_sql(
-      "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Health_Education_Region_Code	
-		, Organisation_Code	
-		, Grade_Sort_Order	
-		, Grade	
+      "SELECT * FROM OPENQUERY ( [FD_UserDB] ,'SELECT Health_Education_Region_Code
+		, Organisation_Code
+		, Grade_Sort_Order
+		, Grade
 		, Specialty_Group
-		, Specialty	
-		, Total_FTE	
+		, Specialty
+		, Total_FTE
 		, Effective_Snapshot_Date
 FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'') ",
-      "AND Organisation_Code = '", Provider_Code, "' ",
-      "AND Specialty = '", Specialty_name, "' ",
+      "AND Organisation_Code = '",
+      Provider_Code,
+      "' ",
+      "AND Specialty in ('",
+      if (Specialty_name %in% c("Gastroenterology", "Gastro-enterology")) {
+        "Gastroenterology', 'gastro-enterology"
+      } else if (Specialty_name %in% c("Oral and Maxillofacial Surgery", "Oral and maxillo-facial surgery", "Oral Surgery")) {
+        "Oral and Maxillofacial Surgery', 'Oral and maxillo-facial surgery' , 'Oral Surgery"
+      } else {
+        Specialty_name
+      }
+      ,
+      "') ",
       "' )"
-      , con = con
+      ,
+      con = con
     )
   ) %>% collect()
   
@@ -187,7 +199,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
-  Provider_List[["Staffing_Medical_Sum"]] %<>% mutate(Medic_Sum = rowSums(select(., -Effective_Snapshot_Date, -Organisation_Code)))
+  Provider_List[["Staffing_Medical_Sum"]] %<>% mutate(Medic_Sum = rowSums(select(., -Effective_Snapshot_Date, -Organisation_Code), na.rm = T))
   Provider_List[["Staffing_Medical_Sum"]] %<>% select(Effective_Snapshot_Date, Organisation_Code, Consultant, Medic_Sum)
   Provider_List[["Staffing_Medical"]] <- NULL
   
