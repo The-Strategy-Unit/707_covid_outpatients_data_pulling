@@ -112,6 +112,15 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
     pivot_wider(names_from = RTT_Part_Description, values_from = sum_Total, names_repair = "universal")
   Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
   Provider_List[["RTT_Table_Pivot"]] %<>% rename("RTT_Referrals" = "New.RTT.Periods...All.Patients")
+  Provider_List[["RTT_Table_Pivot"]] %<>% arrange(Effective_Snapshot_Date)
+  Provider_List[["RTT_Table_Pivot"]] %<>% map_at(2:6, ~ {
+    vector <- .x
+    for (idx in min(which(!is.na(vector))):max(which(!is.na(vector)))) {
+      if (is.na(vector[idx]))
+        vector[idx] <- 0L
+    }
+    return(vector)
+  }) %>% as_tibble()
   
   cat("2/9) RTT pulled\n")
   
@@ -672,6 +681,17 @@ SELECT
     Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
   }
   
+  ## Minor fix for GP Referrals ####
+  
+  no_GP_referrals <- with(Binded, which(is.na(GP_Referrals) & str_detect(Effective_Snapshot_Date, "2019")))
+  
+  if (length(no_GP_referrals) > 0) {
+    Binded[no_GP_referrals, "GP_Referrals"] <- 0
+    Binded[no_GP_referrals, "RTT_Referrals"] <- Binded[["RTT_Referrals"]][max(which(!is.na(Binded[["RTT_Referrals"]])))]
+  }
+  
+  rm(no_GP_referrals)
+  
   ## Create Derived columns ####
   
   Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
@@ -687,7 +707,9 @@ SELECT
   
   ## Fill Yellow Columns ####
   
-  Binded %<>% fill(c("GP_Referrals", "OtherReferrals", "RTT_Referrals", "CompletedPathways_Admitted", "Total_No_Beds", "Consultant", "Medic_Sum", "CompletedPathways_NonAdmitted", "RTT_NotSeen"), .direction = "down")
+  ## rm OtherReferrals and Total_No_Beds
+  
+  Binded %<>% fill(c("GP_Referrals", "OtherReferrals", "Total_No_Beds", "RTT_Referrals", "CompletedPathways_Admitted", "Consultant", "Medic_Sum", "CompletedPathways_NonAdmitted", "RTT_NotSeen"), .direction = "down")
   
   ## Derived Final Cols ####
   
@@ -720,6 +742,30 @@ SELECT
       
     })
   }
+  
+
+
+   init_week <- if (Specialty == 140) "2020-10" else "2020-12"
+   
+   init_idx <- which(Binded$Effective_Snapshot_Date == init_week)
+   
+   for (relevant_idx in init_idx:nrow(Binded)) {
+     Relevant_Date <- Binded[[relevant_idx, "Effective_Snapshot_Date"]]
+     
+     New_Date <-
+       paste0(as.integer(str_sub(Relevant_Date, 1, 4)) - 1,
+              "-",
+              str_sub(Relevant_Date, 6, 7))
+     
+     Binded[[relevant_idx, "PopNeed_GP"]] <-
+       Binded[[which(Binded$Effective_Snapshot_Date == New_Date), "PopNeed_GP"]]
+     Binded[[relevant_idx, "PopNeed_Other"]] <-
+       Binded[[which(Binded$Effective_Snapshot_Date == New_Date), "PopNeed_Other"]]
+     
+   }
+
+   rm(init_week)
+   rm(init_idx)
   
   walk(which(is.na(Binded$WaitingList)), ~ {
     

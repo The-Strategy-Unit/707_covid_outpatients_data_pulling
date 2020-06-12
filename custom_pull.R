@@ -72,6 +72,7 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
                        }),
                        month = month(day)
 )
+
 ## Available Specialties ####
 
 # https://www.datadictionary.nhs.uk/web_site_content/supporting_information/main_specialty_and_treatment_function_codes_table.asp
