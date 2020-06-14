@@ -1,4 +1,17 @@
+############################
+## Relevant Specialties ####
+############################
+
+outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502)
+outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
+
+outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurology", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology
+")
+outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
+
+#####################
 ## Function Code ####
+#####################
 
 Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_Code, Specialty_name, Final_Date) {
   
@@ -100,7 +113,8 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'')
 	AND Provider_Org_Code = '", Provider_Code, "'", 
       "AND Treatment_Function_Code = '", Treatment_Code, "'",
-      "' )",
+      "
+      ' )",
       con = con
     )
   ) %>% collect()
@@ -137,7 +151,11 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
  FROM [central_midlands_csu_UserDB].[Bed_Availability].[Provider_By_Specialty_Occupied_Day_Only_Beds1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'') ",
       "AND Organisation_Code = '", Provider_Code, "' ",
-      "AND Specialty = '", as.character(Specialty), "' ",
+      if (Specialty == "X01") {
+        sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
+      } else {
+      paste0("AND Specialty = '", as.character(Specialty), "' ")
+      },
       "' )",
       con = con
     )
@@ -157,7 +175,11 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
  FROM [central_midlands_csu_UserDB].[Bed_Availability].[Provider_By_Specialty_Occupied_Overnt_Beds1]
 	WHERE Left(Effective_Snapshot_Date,4) in (''2018'',''2019'',''2020'') ",
       "AND Organisation_Code = '", Provider_Code, "' ",
-      "AND Specialty = '", as.character(Specialty), "' ",
+      if (Specialty == "X01") {
+        sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
+      } else {
+        paste0("AND Specialty = '", as.character(Specialty), "' ")
+      },
       "' )",
       con = con
     )
@@ -183,13 +205,23 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
       "AND Organisation_Code = '",
       Provider_Code,
       "' ",
-      "AND Specialty in ('",
-      if (Specialty_name %in% c("Gastroenterology", "Gastro-enterology")) {
-        "Gastroenterology', 'gastro-enterology"
-      } else if (Specialty_name %in% c("Oral and Maxillofacial Surgery", "Oral and maxillo-facial surgery", "Oral Surgery")) {
-        "Oral and Maxillofacial Surgery', 'Oral and maxillo-facial surgery' , 'Oral Surgery"
+      if (Specialty_name == "Other") {
+        sql(paste0(
+          "AND Specialty NOT IN ('",
+          "'",
+          outpatient_specialty_names_regex,
+          "'" 
+        ))
       } else {
-        Specialty_name
+        if (Specialty_name %in% c("Gastroenterology", "Gastro-enterology")) {
+          sql(paste0("AND Specialty in (''Gastroenterology'', ''gastro-enterology'"))
+        } else if (Specialty_name %in% c("Oral and Maxillofacial Surgery",
+                                         "Oral and maxillo-facial surgery",
+                                         "Oral Surgery")) {
+          sql(paste0("AND Specialty in (''Oral and Maxillofacial Surgery'', ''Oral and maxillo-facial surgery'', ''Oral Surgery'"))
+        } else {
+          sql(paste0("AND Specialty in (''", Specialty_name, "'"))
+        }
       }
       ,
       "') ",
@@ -250,8 +282,18 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
       ,Count(*) as [ACTIVITY]
       FROM [ERS].[dbo].[tb_ERS_EREFERRALS]",
       "
-      WHERE SPECIALTY_CODE = ", as.character(Specialty), "
-      AND SERVICE_PROVIDER_CODE = ", Provider_Code,
+      WHERE SERVICE_PROVIDER_CODE = ",
+      Provider_Code,
+      if (Specialty == "X01") {
+        sql(paste0(
+          "
+                 AND SPECIALTY_CODE NOT IN ('",
+          str_replace_all(outpatients_regex, "''", "'"),
+          "') "
+        ))
+      } else {
+        sql(paste0("AND SPECIALTY_CODE = ", "'", as.character(Specialty), "'"))
+      },
       "
       GROUP BY [SPECIALTY_CODE]
       ,[SPECIALTY_DESC]
@@ -310,11 +352,14 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
           , TreatmentSpecialtyDescription
           , DischargeDate
         ) AS DF
-      WHERE DF.TreatmentSpecialtyCode = ", as.character(Specialty), 
-      " AND DF.ProviderCode = ", Provider_Code_00, 
-      con = con
-    )
-  ) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
+      WHERE DF.ProviderCode = ", Provider_Code_00,
+      if (Specialty == "X01") {
+        sql(paste0("
+                 AND DF.TreatmentSpecialtyCode NOT IN ('", str_replace_all(outpatients_regex, "''", "'"), "') "))
+      } else {
+        sql(paste0("AND DF.TreatmentSpecialtyCode = ", "'", as.character(Specialty), "'"))
+      },
+      con = con)) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
   
   cat("8/9) NotSeen_Recovered pulled\n")
   
@@ -364,11 +409,15 @@ SELECT
 		, TreatmentSpecialtyDescription
 		, DischargeDate
 		) AS DF
-		WHERE DF.TreatmentSpecialtyCode = ", as.character(Specialty), 
-      " AND DF.ProviderCode = ", Provider_Code_00,
-      con = con
-    )
-  ) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
+		WHERE DF.ProviderCode = ", Provider_Code_00, 
+      if (Specialty == "X01") {
+        sql(paste0("
+                 AND DF.TreatmentSpecialtyCode NOT IN ('", str_replace_all(outpatients_regex, "''", "'"), "') "))
+      } else {
+        sql(paste0("
+                 AND DF.TreatmentSpecialtyCode = ", "'", as.character(Specialty), "'"))
+      },
+      con = con)) %>% rename("Effective_Snapshot_Date" = "AppointmentDate") %>% collect()
   
   cat("9/9) NotSeen_Died pulled\n")
   
@@ -379,6 +428,15 @@ SELECT
   Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Theatres", "Staffing_Medical_Sum", "Staffing_Sickness"))] %>% imap( ~ {
     df <- .x
     df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
+    
+    if (.y == c("Occupied_Beds_Daycare") & Specialty = "X01") {
+      df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_DAY = sum(Number_Of_Beds_DAY), Organisation_Code = first(Organisation_Code))
+    }
+    if (.y == c("Occupied_Beds_Overnight") & Specialty = "X01") {
+      df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_NIGHT = sum(Number_Of_Beds_NIGHT), Organisation_Code = first(Organisation_Code))
+    }    
+    
+    
     df <-
       df %>% tidyr::complete(Effective_Snapshot_Date = seq.Date(
         min(.$Effective_Snapshot_Date),
@@ -466,6 +524,11 @@ SELECT
   
   df <- Provider_List[["Referrals"]]
   df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
+  
+  if (Specialty == "X01") {
+  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(ACTIVITY = sum(ACTIVITY), Organisation_Code = first(Organisation_Code))
+  }
+  
   # df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
   df <-
     df %>% complete(Effective_Snapshot_Date = seq.Date(
@@ -483,14 +546,20 @@ SELECT
   df$Effective_Snapshot_Date_Week <-
     week(df$Effective_Snapshot_Date)
   
-  df <-
-    df %>% fill(
-      "SPECIALTY_CODE",
-      "SPECIALTY_DESC",
-      "Organisation_Code",
-      "SERVICE_PROVIDER_NAME",
-      .direction = "down"
-    )
+  for (var in c("SPECIALTY_CODE",
+                "SPECIALTY_DESC",
+                "Organisation_Code",
+                "SERVICE_PROVIDER_NAME")) {
+    if (var %in% colnames(df)) {
+      df <-
+        df %>% fill(
+          var,
+          .direction = "down"
+        )
+    }
+    
+  }
+       
   df[which(is.na(df$ACTIVITY)), "ACTIVITY"] <- 0
   
   
