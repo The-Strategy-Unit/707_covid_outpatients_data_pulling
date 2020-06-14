@@ -26,16 +26,18 @@ source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatient
 
 Provider_Code <- "RL4"
 Provider_Code_00 <- "RL400"
-Specialty <- 110
-Specialty_name <- "Trauma and orthopaedic surgery"
+Specialty <- "X01"
+Specialty_name <- "Other"
 Final_Date <- "2020-06-30" ## as YY-MM-DD
+
+## Note: If using X01 specify "Other" as Specialty_name
 
 ## Use function ####
 
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                              Provider_Code_00 = Provider_Code_00,
                       Specialty = Specialty,
-                      Treatment_Code = paste0("C_", Specialty),
+                      Treatment_Code = if (Specialty == "X01") "X01" else paste0("C_", Specialty),
                       Specialty_name = Specialty_name, 
                       Final_Date = Final_Date)
 
@@ -77,21 +79,101 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 # https://www.datadictionary.nhs.uk/web_site_content/supporting_information/main_specialty_and_treatment_function_codes_table.asp
 
-available_specialties <- tibble(specialties = c("Emergency Medicine", "Geriatric medicine", "Haematology", 
-  "Obstetrics and Gynaecology", "Ophthalmology", "Otolaryngology", 
-  "Trauma and orthopaedic surgery", "Anaesthetics", "Cardiology", 
-  "Cardio-thoracic surgery", "Chemical pathology", "Clinical oncology", 
-  "Clinical radiology", "Dermatology", "Endocrinology and diabetes mellitus", 
-  "Gastroenterology", "General (internal) medicine", "General surgery", 
-  "Genito-urinary medicine", "Histopathology", "Medical microbiology", 
-  "Medical oncology", "Neurology", "Oral and maxillo-facial surgery", 
-  "Orthodontics", "Paediatrics", "Palliative medicine", "Rehabilitation medicine", 
-  "Renal medicine", "Respiratory medicine", "Rheumatology", "Urology", 
-  "Vascular Surgery", "Acute Internal Medicine", "General psychiatry", 
-  "General Practice (GP) 6 month Training", "Public Health Medicine", 
-  "General Dental Practitioner", "Clinical neurophysiology", "General Med Practitioner", 
-  "Immunology", "Oral and Maxillofacial Surgery", "Gastro-enterology", 
-  "Oral Surgery"))
+available_specialties <-
+  structure(
+    list(
+      Specialty = c(
+        "Acute Internal Medicine",
+        "Additional dental specialties",
+        "Allergy",
+        "Anaesthetics",
+        "Audio Vestibular Medicine",
+        "Cardio-thoracic surgery",
+        "Cardiology",
+        "Chemical pathology",
+        "Child and adolescent psychiatry",
+        "Clinical genetics",
+        "Clinical neurophysiology",
+        "Clinical oncology",
+        "Clinical pharmacology and therapeutics",
+        "Clinical radiology",
+        "Community Health Service Dental",
+        "Community Health Service Medical",
+        "Community Sexual and Reproductive Health",
+        "Dental and Maxillofacial Radiology",
+        "Dental Public Health",
+        "Dermatology",
+        "Diagnostic Neuropathology",
+        "Emergency Medicine",
+        "Endocrinology and diabetes mellitus",
+        "Endodontics",
+        "Forensic Histopathology",
+        "Forensic psychiatry",
+        "Gastro-enterology",
+        "Gastroenterology",
+        "General (internal) medicine",
+        "General Dental Practitioner",
+        "General Med Practitioner",
+        "General pathology",
+        "General Practice (GP) 6 month Training",
+        "General psychiatry",
+        "General surgery",
+        "Genito-urinary medicine",
+        "Geriatric medicine",
+        "Haematology",
+        "Histopathology",
+        "Immunology",
+        "Infectious diseases",
+        "Intensive care medicine",
+        "Medical microbiology",
+        "Medical oncology",
+        "Medical ophthalmology",
+        "Neurology",
+        "Neurosurgery",
+        "Nuclear medicine",
+        "Obstetrics and Gynaecology",
+        "Occupational medicine",
+        "Old age psychiatry",
+        "Ophthalmology",
+        "Oral and maxillo-facial surgery",
+        "Oral and Maxillofacial Pathology",
+        "Oral and Maxillofacial Surgery",
+        "Oral Medicine",
+        "Oral Surgery",
+        "Orthodontics",
+        "Other",
+        "Other Specialties",
+        "Otolaryngology",
+        "Paediatric and Perinatal Pathology",
+        "Paediatric cardiology",
+        "Paediatric dentistry",
+        "Paediatric surgery",
+        "Paediatrics",
+        "Palliative medicine",
+        "Periodontics",
+        "Plastic surgery",
+        "Prosthodontics",
+        "Psychiatry of learning disability",
+        "Psychotherapy",
+        "Public Health Medicine",
+        "Rehabilitation medicine",
+        "Renal medicine",
+        "Respiratory medicine",
+        "Restorative dentistry",
+        "Rheumatology",
+        "Special Care Dentistry",
+        "Sport and Exercise Medicine",
+        "Surgical Dentistry",
+        "Trauma and orthopaedic surgery",
+        "Tropical medicine",
+        "Urology",
+        "Vascular Surgery",
+        "Virology"
+      )
+    ),
+    class = c("tbl_df", "tbl", "data.frame"),
+    row.names = c(NA,-86L)
+  )
 
 ## Available Specialty Codes ####
 
