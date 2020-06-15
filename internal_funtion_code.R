@@ -1,4 +1,4 @@
-Script_Version <- "1.1506.11"
+Script_Version <- "1.1506.12"
 
 ############################
 ## Relevant Specialties ####
@@ -710,7 +710,8 @@ SELECT
         
         for (idx in 1:length(pathway_vector)) {
           if (is.na(pathway_vector[idx]) &
-                    idx < max(which(!is.na(pathway_vector)))) {
+                    idx < max(which(!is.na(pathway_vector))) &
+              idx > min(which(!is.na(pathway_vector))) {
             pathway_vector[idx] <- pathway_vector[idx - 1]
           }
         }
