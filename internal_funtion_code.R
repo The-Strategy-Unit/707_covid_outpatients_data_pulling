@@ -428,10 +428,10 @@ SELECT
     df <- .x
     df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
     
-    if (.y == c("Occupied_Beds_Daycare") & Specialty = "X01") {
+    if (.y == c("Occupied_Beds_Daycare") & Specialty == "X01") {
       df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_DAY = sum(Number_Of_Beds_DAY), Organisation_Code = first(Organisation_Code))
     }
-    if (.y == c("Occupied_Beds_Overnight") & Specialty = "X01") {
+    if (.y == c("Occupied_Beds_Overnight") & Specialty == "X01") {
       df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_NIGHT = sum(Number_Of_Beds_NIGHT), Organisation_Code = first(Organisation_Code))
     }    
     
