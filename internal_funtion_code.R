@@ -8,6 +8,29 @@ outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
 outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology")
 outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
 
+##################################
+## Look up for relevant dates ####
+##################################
+
+dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
+                                      as.Date("2020-12-31"),
+                                      by = "day"),
+                       formattedweek = day %>% map_chr(function(x) {
+                         paste0(year(x), "-", if (str_count(week(x)) == 1) {
+                           paste0(0, week(x))
+                         } else {
+                           week(x)
+                         }
+                         )
+                       }),
+                       week = week(day),
+                       month = month(day),
+                       year = year(day)
+)
+
+dates_lookup_formula <- dates_lookup %>% group_by(year, month, week) %>% summarise(nrows = n())
+dates_lookup_formula %<>% mutate(days_in_month = sum(nrows), days_in_month_propn = nrows/days_in_month)
+
 #####################
 ## Function Code ####
 #####################
@@ -531,8 +554,8 @@ SELECT
   # df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
   df <-
     df %>% complete(Effective_Snapshot_Date = seq.Date(
-      as.Date("2019-01-01"),
-      max(df$Effective_Snapshot_Date),
+      from = if (nrow(df) == 0) as.Date("2018-12-01") else as.Date("2019-01-01"),
+      to = if (nrow(df) == 0) as.Date(Final_Date) else max(df$Effective_Snapshot_Date),
       by = "day"
     ))
   df <-
@@ -577,6 +600,23 @@ SELECT
       Effective_Snapshot_Date_Week
     ) %>%
     mutate(Propn = round(Activity_Sum / sum(Activity_Sum), 3))
+  
+  if (all(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
+    
+    for (index in seq_len(nrow(Provider_List_Mutate[["Referrals_MonthWeek"]]))) {
+      
+      my_year <- Provider_List_Mutate[["Referrals_MonthWeek"]][index,] %>% pull(Effective_Snapshot_Date_Year)
+      my_month <- Provider_List_Mutate[["Referrals_MonthWeek"]][index,] %>% pull(Effective_Snapshot_Date_Month)
+      my_week <- Provider_List_Mutate[["Referrals_MonthWeek"]][index,] %>% pull(Effective_Snapshot_Date_Week)
+      
+      Provider_List_Mutate[["Referrals_MonthWeek"]][[index,"Propn"]] <- dates_lookup_formula %>% filter(year == my_year, month == my_month, week == my_week) %>% pull(days_in_month_propn)
+      
+    }
+    
+    rm(my_year, my_month, my_week)
+    
+  }
+  
   Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
     with(
       Provider_List_Mutate[["Referrals_MonthWeek"]],

@@ -26,8 +26,8 @@ source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatient
 
 Provider_Code <- "RL4"
 Provider_Code_00 <- "RL400"
-Specialty <- "X01"
-Specialty_name <- "Other"
+Specialty <- "300"
+Specialty_name <- "General (internal) medicine"
 Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 ## Note: If using X01 specify "Other" as Specialty_name
@@ -56,24 +56,6 @@ save.image("workspace.RData")
 ###############################
 ## EXTRA INFORMATION BELOW ####
 ###############################
-
-
-## Look up for relevant dates ####
-
-dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
-                                      as.Date("2020-12-31"),
-                                      by = "day"),
-                       week = week(day),
-                       formattedweek = day %>% map_chr(function(x) {
-                         paste0(year(x), "-", if (str_count(week(x)) == 1) {
-                           paste0(0, week(x))
-                         } else {
-                           week(x)
-                         }
-                         )
-                       }),
-                       month = month(day)
-)
 
 ## Available Specialties ####
 
