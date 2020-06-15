@@ -28,7 +28,7 @@ Provider_Code <- "RJE"
 Provider_Code_00 <- "RJE00"
 Specialty <- "300"
 Specialty_name <- "General (internal) medicine"
-Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty)
+Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty) ## don't need to change this line
 Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 ## Note: If using X01 specify "Other" as Specialty_name

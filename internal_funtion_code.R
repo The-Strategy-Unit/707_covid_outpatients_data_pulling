@@ -1,4 +1,4 @@
-Script_Version <- "1.1506.00"
+Script_Version <- "1.1506.11"
 
 ############################
 ## Relevant Specialties ####
@@ -151,7 +151,11 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
   Provider_List[["RTT_Table_Pivot"]]$Organisation_Code <- unique(Provider_List[["RTT_Table"]]$Provider_Org_Code)
   Provider_List[["RTT_Table_Pivot"]] %<>% rename("RTT_Referrals" = "New.RTT.Periods...All.Patients")
   Provider_List[["RTT_Table_Pivot"]] %<>% arrange(Effective_Snapshot_Date)
-  Provider_List[["RTT_Table_Pivot"]] %<>% map_at(2:6, ~ {
+  Provider_List[["RTT_Table_Pivot"]] %<>% map_at(c("Completed.Pathways.For.Admitted.Patients",
+                                                   "Completed.Pathways.For.Non.Admitted.Patients",
+                                                   "Incomplete.Pathways",
+                                                   "Incomplete.Pathways.with.DTA",
+                                                   "RTT_Referrals"), ~ {
     vector <- .x
     for (idx in min(which(!is.na(vector))):max(which(!is.na(vector)))) {
       if (is.na(vector[idx]))
@@ -159,6 +163,22 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
     }
     return(vector)
   }) %>% as_tibble()
+  
+  for (var in c("Completed.Pathways.For.Admitted.Patients",
+    "Completed.Pathways.For.Non.Admitted.Patients",
+    "Incomplete.Pathways",
+    "Incomplete.Pathways.with.DTA",
+    "RTT_Referrals")) {
+    
+    if (var %in% colnames(Provider_List[["RTT_Table_Pivot"]]) == FALSE) {
+      
+      Provider_List[["RTT_Table_Pivot"]][[var]] <- 0
+    }
+  }
+  
+  Provider_List[["RTT_Table_Pivot"]] %<>% select("Effective_Snapshot_Date", "Completed.Pathways.For.Admitted.Patients","Completed.Pathways.For.Non.Admitted.Patients", "Incomplete.Pathways", "Incomplete.Pathways.with.DTA", "RTT_Referrals", "Organisation_Code")
+  
+  
   
   cat("2/9) RTT pulled\n")
   
@@ -674,7 +694,33 @@ SELECT
       "Effective_Snapshot_Date_Year",
       "Effective_Snapshot_Date_Month"
     )
-  ) %>% mutate_at(vars("Completed.Pathways.For.Admitted.Patients":"RTT_Referrals"),
+  ) 
+  
+  Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% map_at(
+    c(
+      "Completed.Pathways.For.Admitted.Patients",
+      "Completed.Pathways.For.Non.Admitted.Patients",
+      "Incomplete.Pathways",
+      "Incomplete.Pathways.with.DTA",
+      "RTT_Referrals"
+    ),
+    ~
+      {
+        pathway_vector <- .x
+        
+        for (idx in 1:length(pathway_vector)) {
+          if (is.na(pathway_vector[idx]) &
+                    idx < max(which(!is.na(pathway_vector)))) {
+            pathway_vector[idx] <- pathway_vector[idx - 1]
+          }
+        }
+        
+        return(pathway_vector)
+        
+      }
+  ) %>% as_tibble()
+  
+  Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% mutate_at(vars("Completed.Pathways.For.Admitted.Patients":"RTT_Referrals"),
                   ~ round(.*Propn, 0))
   
   ## Waiting List Wrangling ####
