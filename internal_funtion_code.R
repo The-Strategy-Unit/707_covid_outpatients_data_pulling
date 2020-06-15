@@ -154,7 +154,7 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
       if (Specialty == "X01") {
         sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
       } else {
-      paste0("AND Specialty = '", as.character(Specialty), "' ")
+      paste0("AND Specialty = ''", as.character(Specialty), "'' ")
       },
       "' )",
       con = con
@@ -178,7 +178,7 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
       if (Specialty == "X01") {
         sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
       } else {
-        paste0("AND Specialty = '", as.character(Specialty), "' ")
+        sql(paste0("AND Specialty = ''", as.character(Specialty), "'' "))
       },
       "' )",
       con = con
