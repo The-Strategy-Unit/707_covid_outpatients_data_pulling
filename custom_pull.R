@@ -24,10 +24,11 @@ source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatient
 
 ## Parameters ####
 
-Provider_Code <- "RL4"
-Provider_Code_00 <- "RL400"
+Provider_Code <- "RJE"
+Provider_Code_00 <- "RJE00"
 Specialty <- "300"
 Specialty_name <- "General (internal) medicine"
+Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty)
 Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 ## Note: If using X01 specify "Other" as Specialty_name
@@ -37,7 +38,7 @@ Final_Date <- "2020-06-30" ## as YY-MM-DD
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                              Provider_Code_00 = Provider_Code_00,
                       Specialty = Specialty,
-                      Treatment_Code = if (Specialty == "X01") "X01" else paste0("C_", Specialty),
+                      Treatment_Code = Treatment_Code,
                       Specialty_name = Specialty_name, 
                       Final_Date = Final_Date)
 
