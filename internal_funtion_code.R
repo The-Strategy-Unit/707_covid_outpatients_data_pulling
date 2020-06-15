@@ -5,8 +5,7 @@
 outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502)
 outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
 
-outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurology", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology
-")
+outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology")
 outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
 
 #####################
