@@ -1,4 +1,4 @@
-Script_Version <- "1.1506.14"
+Script_Version <- "1.2506.50"
 
 ############################
 ## Relevant Specialties ####
@@ -576,7 +576,7 @@ SELECT
   # df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
   df <-
     df %>% complete(Effective_Snapshot_Date = seq.Date(
-      from = if (nrow(df) == 0) as.Date("2018-12-01") else as.Date("2019-01-01"),
+      from = as.Date("2018-01-01"),
       to = if (nrow(df) == 0) as.Date(Final_Date) else max(df$Effective_Snapshot_Date),
       by = "day"
     ))
@@ -605,8 +605,7 @@ SELECT
   }
        
   df[which(is.na(df$ACTIVITY)), "ACTIVITY"] <- 0
-  
-  
+
   Provider_List_Mutate[["Referrals_MonthWeek"]] <- df %>% group_by(
     Effective_Snapshot_Date_Year,
     Effective_Snapshot_Date_Month,
@@ -637,6 +636,32 @@ SELECT
     
     rm(my_year, my_month, my_week)
     
+  }
+  
+  if (any(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
+    
+    for (row_idx in which(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
+      
+      my_year <- Provider_List_Mutate[["Referrals_MonthWeek"]][row_idx,] %>% pull(Effective_Snapshot_Date_Year)
+      my_month <- Provider_List_Mutate[["Referrals_MonthWeek"]][row_idx,] %>% pull(Effective_Snapshot_Date_Month)
+      my_week <- Provider_List_Mutate[["Referrals_MonthWeek"]][row_idx,] %>% pull(Effective_Snapshot_Date_Week)
+      
+      Provider_List_Mutate[["Referrals_MonthWeek"]][[row_idx,"Propn"]] <- dates_lookup_formula %>% filter(year == my_year, month == my_month, week == my_week) %>% pull(days_in_month_propn)
+      
+    }
+    
+    rm(my_year, my_month, my_week)
+  }
+  
+  ## Ad hoc fix for RL4 / 330 ####
+
+  if (Provider_Code == "RL4" & Specialty == "330") {
+
+Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formula %>% filter(year == 2019, month == 12) %>% rename(Effective_Snapshot_Date_Year = year, Effective_Snapshot_Date_Month = month, Effective_Snapshot_Date_Week = week, Propn = days_in_month_propn) %>% select(-nrows, -days_in_month))
+    Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% filter(!(Effective_Snapshot_Date_Year == 2019 & Effective_Snapshot_Date_Month == 12 & Effective_Snapshot_Date_Week == 48 & Activity_Sum == 1))
+    
+    Provider_List_Mutate[["Referrals_MonthWeek"]][which(is.na(Provider_List_Mutate[["Referrals_MonthWeek"]]$Activity_Sum)), "Activity_Sum"] <- 0
+
   }
   
   Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
