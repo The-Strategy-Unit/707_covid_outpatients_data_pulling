@@ -1,4 +1,4 @@
-Script_Version <- "1.2506.50"
+Script_Version <- "1.0607.10"
 
 ############################
 ## Relevant Specialties ####
@@ -965,6 +965,98 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     add_column(NoAdm_per_Diagnostic = NA, .after = "Diagnostics") %>% 
     add_column(NoSeen_per_Diagnostic = NA, .after = "NoSeen_per_Consultant") %>% 
     add_column(PCT_Recover = NA, .after = "NoSeen_per_Diagnostic")
+  
+  ## Add Diagnostics ####
+  
+  cat("Adding in diagnostics data")
+  
+  tbl(
+    con,
+    build_sql(
+      "SELECT    Organisation_Code 
+    , CASE WHEN Diagnostic_ID IN ('12','13','14','15') THEN 'Endoscopy' 
+    ELSE Diagnostic_Test_Name END AS Diagnostic_Test_Name
+    , Effective_Snapshot_Date
+    , Sum(WL_Tests_And_Procedures_Excl_Planned) as Tests   
+    FROM [FD_UserDB].[central_midlands_csu_UserDB].[Diagnostic_Waits_And_Activity].[Activity_Mthly_Prov1]
+    WHERE Effective_Snapshot_Date >'2018-12-31' AND Diagnostic_ID IN ('1','2','3','5','6','7','12','13','14','15')
+    AND Organisation_Code = ",  paste0(Provider_Code),
+      " GROUP BY Organisation_Code 
+    , CASE WHEN Diagnostic_ID IN ('12','13','14','15') THEN 'Endoscopy' 
+    ELSE Diagnostic_Test_Name END
+    , Effective_Snapshot_Date
+    , WL_Tests_And_Procedures_Excl_Planned",
+      con = con
+    )
+  ) %>% collect() -> test
+  
+  DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/DiagSpecSplits.csv"))
+  
+  DiagSpecSplits$Specialty %>% unique() -> diag_specialty_codes
+  
+  # DiagSpecSplits <- DiagSpecSplits %>% filter(Percent != 0)
+  
+  
+  diag_df <- map2(purrr::set_names(DiagSpecSplits$Test, janitor::make_clean_names(paste0(DiagSpecSplits$Test, "_", DiagSpecSplits$Specialty))), DiagSpecSplits$Specialty, ~ {
+    df <- test %>% filter(Diagnostic_Test_Name == .x)
+    df$Tests <- round(df$Tests*(DiagSpecSplits %>% filter(Test == .x, Specialty == .y) %>% pull(Percent)), 0)
+    
+    if (.x == "Endoscopy") {
+      df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Organisation_Code = first(Organisation_Code), Diagnostic_Test_Name = first(Diagnostic_Test_Name), Tests = sum(Tests))
+    }
+    
+    return(df)
+  })
+  
+  diag_df[which(names(diag_df) %>% str_detect(Specialty))] -> diag_df
+  
+  diag_df <- imap(diag_df, ~ {
+    .x %>% rename(!!sym(.y) := "Tests") %>% select(-Diagnostic_Test_Name)
+  })
+  
+  diag_df <- diag_df %>% reduce(left_join, by = c("Organisation_Code", "Effective_Snapshot_Date"))
+  
+  diag_df <-
+    diag_df %>%
+    mutate_at("Effective_Snapshot_Date", as.Date)
+  
+  diag_df$Effective_Snapshot_Date_Year <-
+    year(diag_df$Effective_Snapshot_Date)
+  diag_df$Effective_Snapshot_Date_Month <-
+    month(diag_df$Effective_Snapshot_Date)
+  
+  proportions_rip <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% select(contains("Effective"), "Organisation_Code", "Propn")
+  
+  diag_df <- left_join(
+    diag_df,
+    proportions_rip %>% select(-"Organisation_Code", -"Effective_Snapshot_Date"),
+    by = c(
+      "Effective_Snapshot_Date_Year",
+      "Effective_Snapshot_Date_Month"
+    )
+  )
+  
+  diag_df %<>% mutate_at(vars(contains(Specialty)),
+                         ~ round(.*Propn, 0))
+  
+  diag_df <- mutate(diag_df, Effective_Snapshot_Date = paste0(
+    Effective_Snapshot_Date_Year,
+    "-",
+    Effective_Snapshot_Date_Week %>% map(~ if (str_length(.x) == 1) {
+      paste0("0", .x)
+    }
+    else {
+      .x
+    })
+  )
+  )
+  
+  ## Join with Binded again ####
+  
+  Binded %<>% left_join(diag_df %>% select(contains(Specialty), "Effective_Snapshot_Date"), by = "Effective_Snapshot_Date")
+  
+  Binded <- Binded %>% fill(contains(Specialty), .direction = "down")
+  
   
   ## Time end ####
   
