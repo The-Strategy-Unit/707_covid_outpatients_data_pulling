@@ -1,4 +1,4 @@
-Script_Version <- "1.0607.10"
+Script_Version <- "1.0607.20"
 
 ############################
 ## Relevant Specialties ####
@@ -970,6 +970,8 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   cat("Adding in diagnostics data")
   
+  diag_specialty <- if (Specialty == "X01") "x01" else Specialty
+  
   tbl(
     con,
     build_sql(
@@ -1008,7 +1010,7 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     return(df)
   })
   
-  diag_df[which(names(diag_df) %>% str_detect(Specialty))] -> diag_df
+  diag_df[which(names(diag_df) %>% str_detect(diag_specialty))] -> diag_df
   
   diag_df <- imap(diag_df, ~ {
     .x %>% rename(!!sym(.y) := "Tests") %>% select(-Diagnostic_Test_Name)
@@ -1036,7 +1038,7 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     )
   )
   
-  diag_df %<>% mutate_at(vars(contains(Specialty)),
+  diag_df %<>% mutate_at(vars(contains(diag_specialty)),
                          ~ round(.*Propn, 0))
   
   diag_df <- mutate(diag_df, Effective_Snapshot_Date = paste0(
@@ -1053,9 +1055,9 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   ## Join with Binded again ####
   
-  Binded %<>% left_join(diag_df %>% select(contains(Specialty), "Effective_Snapshot_Date"), by = "Effective_Snapshot_Date")
+  Binded %<>% left_join(diag_df %>% select(contains(diag_specialty), "Effective_Snapshot_Date"), by = "Effective_Snapshot_Date")
   
-  Binded <- Binded %>% fill(contains(Specialty), .direction = "down")
+  Binded <- Binded %>% fill(contains(diag_specialty), .direction = "down")
   
   
   ## Time end ####
