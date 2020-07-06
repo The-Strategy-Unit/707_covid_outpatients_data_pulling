@@ -1,0 +1,106 @@
+﻿Test,Specialty,Percent
+Audiology - Audiology Assessments,100,0.00 
+Audiology - Audiology Assessments,101,0.00 
+Audiology - Audiology Assessments,110,0.00 
+Audiology - Audiology Assessments,120,0.62 
+Audiology - Audiology Assessments,130,0.00 
+Audiology - Audiology Assessments,150,0.00 
+Audiology - Audiology Assessments,300,0.00 
+Audiology - Audiology Assessments,301,0.00 
+Audiology - Audiology Assessments,320,0.00 
+Audiology - Audiology Assessments,340,0.00 
+Audiology - Audiology Assessments,400,0.00 
+Audiology - Audiology Assessments,410,0.00 
+Audiology - Audiology Assessments,430,0.00 
+Audiology - Audiology Assessments,502,0.00 
+Audiology - Audiology Assessments,X01,0.38 
+Cardiology - Echocardiography,100,0.01 
+Cardiology - Echocardiography,101,0.00 
+Cardiology - Echocardiography,110,0.01 
+Cardiology - Echocardiography,120,0.00 
+Cardiology - Echocardiography,130,0.00 
+Cardiology - Echocardiography,150,0.00 
+Cardiology - Echocardiography,300,0.01 
+Cardiology - Echocardiography,301,0.00 
+Cardiology - Echocardiography,320,0.61 
+Cardiology - Echocardiography,340,0.00 
+Cardiology - Echocardiography,400,0.00 
+Cardiology - Echocardiography,410,0.00 
+Cardiology - Echocardiography,430,0.00 
+Cardiology - Echocardiography,502,0.00 
+Cardiology - Echocardiography,X01,0.36 
+Computed Tomography,100,0.01 
+Computed Tomography,101,0.03 
+Computed Tomography,110,0.01 
+Computed Tomography,120,0.02 
+Computed Tomography,130,0.02 
+Computed Tomography,150,0.00 
+Computed Tomography,300,0.02 
+Computed Tomography,301,0.02 
+Computed Tomography,320,0.01 
+Computed Tomography,340,0.02 
+Computed Tomography,400,0.00 
+Computed Tomography,410,0.00 
+Computed Tomography,430,0.00 
+Computed Tomography,502,0.00 
+Computed Tomography,X01,0.84 
+DEXA Scan,100,0.00 
+DEXA Scan,101,0.00 
+DEXA Scan,110,0.01 
+DEXA Scan,120,0.00 
+DEXA Scan,130,0.00 
+DEXA Scan,150,0.00 
+DEXA Scan,300,0.05 
+DEXA Scan,301,0.01 
+DEXA Scan,320,0.00 
+DEXA Scan,340,0.00 
+DEXA Scan,400,0.00 
+DEXA Scan,410,0.13 
+DEXA Scan,430,0.06 
+DEXA Scan,502,0.01 
+DEXA Scan,X01,0.73 
+Magnetic Resonance Imaging,100,0.00 
+Magnetic Resonance Imaging,101,0.01 
+Magnetic Resonance Imaging,110,0.06 
+Magnetic Resonance Imaging,120,0.01 
+Magnetic Resonance Imaging,130,0.00 
+Magnetic Resonance Imaging,150,0.01 
+Magnetic Resonance Imaging,300,0.00 
+Magnetic Resonance Imaging,301,0.01 
+Magnetic Resonance Imaging,320,0.01 
+Magnetic Resonance Imaging,340,0.00 
+Magnetic Resonance Imaging,400,0.02 
+Magnetic Resonance Imaging,410,0.01 
+Magnetic Resonance Imaging,430,0.00 
+Magnetic Resonance Imaging,502,0.00 
+Magnetic Resonance Imaging,X01,0.86 
+Non-obstetric Ultrasound,100,0.01 
+Non-obstetric Ultrasound,101,0.07 
+Non-obstetric Ultrasound,110,0.01 
+Non-obstetric Ultrasound,120,0.00 
+Non-obstetric Ultrasound,130,0.03 
+Non-obstetric Ultrasound,150,0.00 
+Non-obstetric Ultrasound,300,0.00 
+Non-obstetric Ultrasound,301,0.00 
+Non-obstetric Ultrasound,320,0.00 
+Non-obstetric Ultrasound,340,0.00 
+Non-obstetric Ultrasound,400,0.00 
+Non-obstetric Ultrasound,410,0.01 
+Non-obstetric Ultrasound,430,0.00 
+Non-obstetric Ultrasound,502,0.22 
+Non-obstetric Ultrasound,X01,0.65 
+Endoscopy,100,0.09 
+Endoscopy,101,0.00 
+Endoscopy,110,0.00 
+Endoscopy,120,0.00 
+Endoscopy,130,0.00 
+Endoscopy,150,0.00 
+Endoscopy,300,0.02 
+Endoscopy,301,0.73 
+Endoscopy,320,0.00 
+Endoscopy,340,0.00 
+Endoscopy,400,0.00 
+Endoscopy,410,0.00 
+Endoscopy,430,0.00 
+Endoscopy,502,0.00 
+Endoscopy,X01,0.16 
