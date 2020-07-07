@@ -1,4 +1,4 @@
-Script_Version <- "1.0707.1"
+Script_Version <- "1.0707.2"
 
 ############################
 ## Relevant Specialties ####
@@ -1018,6 +1018,9 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   diag_df <- diag_df %>% reduce(left_join, by = c("Organisation_Code", "Effective_Snapshot_Date"))
   
+  diag_df %<>% mutate_at(vars(contains(diag_specialty)),
+                        function(x) if (all(is.na(x))) 0 else x)
+  
   diag_df <-
     diag_df %>%
     mutate_at("Effective_Snapshot_Date", as.Date)
@@ -1028,6 +1031,25 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     month(diag_df$Effective_Snapshot_Date)
   
   proportions_rip <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% select(contains("Effective"), "Organisation_Code", "Propn")
+  
+  check_anti <- anti_join(diag_df %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month), proportions_rip %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month) %>% distinct())
+  
+  if (nrow(check_anti) > 0) {
+    
+    walk2(check_anti$Effective_Snapshot_Date_Year, check_anti$Effective_Snapshot_Date_Month, ~ {
+      
+      temp <- dates_lookup_formula %>% filter(year == .x, month == .y) %>% select(-nrows, -days_in_month)
+      temp %<>% rename(
+        Effective_Snapshot_Date_Year = year,
+        Effective_Snapshot_Date_Month = month,
+        Effective_Snapshot_Date_Week = week,
+        Propn = days_in_month_propn)
+      
+      proportions_rip <<- bind_rows(proportions_rip, temp)
+    }
+    )
+  }
+  
   
   diag_df <- left_join(
     diag_df,
@@ -1053,7 +1075,7 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   )
   )
   
-  diag_df %<>% group_by(Effective_Snapshot_Date) %>% summarise_at(vars(contains("110")), sum)
+  diag_df %<>% group_by(Effective_Snapshot_Date) %>% summarise_at(vars(contains(diag_specialty)), sum)
   
   ## Join with Binded again ####
   
