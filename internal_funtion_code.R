@@ -1,4 +1,4 @@
-Script_Version <- "1.0607.20"
+Script_Version <- "1.0707.1"
 
 ############################
 ## Relevant Specialties ####
@@ -1052,6 +1052,8 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     })
   )
   )
+  
+  diag_df %<>% group_by(Effective_Snapshot_Date) %>% summarise_at(vars(contains("110")), sum)
   
   ## Join with Binded again ####
   
