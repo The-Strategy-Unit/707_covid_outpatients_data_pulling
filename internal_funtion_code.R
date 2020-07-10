@@ -1,14 +1,18 @@
-Script_Version <- "1.0707.2"
+Script_Version <- "1.0907.1"
 
 ############################
 ## Relevant Specialties ####
 ############################
 
-outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502)
+outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502, "X01")
 outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
 
 outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology")
 outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
+
+outpatients_tibble <- tibble(codes = outpatients_specialties,
+                             code_names = c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology", "Other"))
+
 
 ##################################
 ## Look up for relevant dates ####
@@ -32,6 +36,15 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 
 dates_lookup_formula <- dates_lookup %>% group_by(year, month, week) %>% summarise(nrows = n())
 dates_lookup_formula %<>% mutate(days_in_month = sum(nrows), days_in_month_propn = nrows/days_in_month)
+
+#####################
+## Load Diag CSV ####
+#####################
+
+DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/DiagSpecSplits.csv"))
+
+DiagSpecSplits <- bind_rows(DiagSpecSplits,
+                            crossing(Test = DiagSpecSplits$Test, Specialty = setdiff(outpatients_tibble$codes, DiagSpecSplits$Specialty), Percent = 0.00))
 
 #####################
 ## Function Code ####
@@ -874,6 +887,11 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   rm(no_GP_referrals)
   
+  ## GP Referrals issue fix ####
+  
+  Binded %<>% mutate_at(vars("GP_Referrals"), funs(case_when(. > as.integer(RTT_Referrals) ~ as.integer(RTT_Referrals),
+                                                       TRUE ~ .)))
+  
   ## Create Derived columns ####
   
   Binded %<>% mutate(OtherReferrals = RTT_Referrals-GP_Referrals,
@@ -992,8 +1010,6 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     )
   ) %>% collect() -> test
   
-  DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/DiagSpecSplits.csv"))
-  
   DiagSpecSplits$Specialty %>% unique() -> diag_specialty_codes
   
   # DiagSpecSplits <- DiagSpecSplits %>% filter(Percent != 0)
@@ -1090,12 +1106,6 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   print(end-start)
   
-  return(
-    list(
-      Provider_List = Provider_List,
-      Provider_List_Mutate = Provider_List_Mutate,
-      Binded = Binded
-    )
-  )
+  return(Binded)
   
 }
