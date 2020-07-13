@@ -1,4 +1,4 @@
-Script_Version <- "1.0907.1"
+Script_Version <- "1.1307.1"
 
 ############################
 ## Relevant Specialties ####
@@ -210,6 +210,10 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
       "AND Organisation_Code = '", Provider_Code, "' ",
       if (Specialty == "X01") {
         sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
+      } else if (Specialty == "170" | Specialty == 170) {
+        sql(paste0("AND Specialty IN (''170'', ''172'', ''173'') "))
+      } else if (Specialty == "110" | Specialty == 110) {
+        sql(paste0("AND Specialty IN (''108'', ''110'') "))
       } else {
       sql(paste0("AND Specialty = ''", as.character(Specialty), "'' "))
       },
@@ -234,6 +238,10 @@ Pull_From_SQL <- function(Provider_Code, Provider_Code_00, Specialty, Treatment_
       "AND Organisation_Code = '", Provider_Code, "' ",
       if (Specialty == "X01") {
         sql(paste0("AND Specialty NOT IN (''", outpatients_regex, "'') "))
+      } else if (Specialty == "170" | Specialty == 170) {
+        sql(paste0("AND Specialty IN (''170'', ''172'', ''173'') "))
+      } else if (Specialty == "110" | Specialty == 110) {
+        sql(paste0("AND Specialty IN (''108'', ''110'') "))
       } else {
         sql(paste0("AND Specialty = ''", as.character(Specialty), "'' "))
       },
@@ -346,6 +354,13 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
           "
                  AND SPECIALTY_CODE NOT IN ('",
           str_replace_all(outpatients_regex, "''", "'"),
+          "') "
+        ))
+      } else if (Specialty == "170" | Specialty == 170) {
+        sql(paste0(
+          "
+                 AND SPECIALTY_CODE IN ('",
+          str_replace_all("170'', ''172'', ''173", "''", "'"),
           "') "
         ))
       } else {
