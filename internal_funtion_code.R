@@ -1,4 +1,4 @@
-Script_Version <- "1.1307.1"
+Script_Version <- "1.1307.2"
 
 ############################
 ## Relevant Specialties ####
@@ -35,7 +35,19 @@ dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
 )
 
 dates_lookup_formula <- dates_lookup %>% group_by(year, month, week) %>% summarise(nrows = n())
-dates_lookup_formula %<>% mutate(days_in_month = sum(nrows), days_in_month_propn = nrows/days_in_month)
+dates_lookup_formula %<>% mutate(days_in_month = sum(nrows), 
+                                days_in_month_propn = nrows/days_in_month,
+                                Effective_Snapshot_Date = paste0(
+                                  year,
+                                  "-",
+                                  week %>% map(~ if (str_length(.x) == 1) {
+                                    paste0("0", .x)
+                                  }
+                                  else {
+                                    .x
+                                  })
+                                )
+)
 
 #####################
 ## Load Diag CSV ####
@@ -739,6 +751,28 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
     year( Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date)
   Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date_Month <-
     month(Provider_List[["RTT_Table_Pivot"]]$Effective_Snapshot_Date)
+  
+  missing_months <- anti_join(Provider_List[["RTT_Table_Pivot"]] %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month), Provider_List_Mutate[["Referrals_MonthWeek"]] %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month))
+  
+  if (nrow(missing_months) > 0) {
+    
+    Provider_List_Mutate[["Referrals_MonthWeek"]] <- bind_rows(Provider_List_Mutate[["Referrals_MonthWeek"]],
+              map2_df(missing_months$Effective_Snapshot_Date_Year, missing_months$Effective_Snapshot_Date_Month,
+                      ~ {
+                        
+                        dates_lookup_formula %>% filter(year == .x, month == .y) %>%
+                          select(-nrows, -days_in_month) %>% 
+                          rename(
+                            Effective_Snapshot_Date_Year = year,
+                            Effective_Snapshot_Date_Month = month,
+                            Effective_Snapshot_Date_Week = week,
+                            Propn = days_in_month_propn)
+                        
+                      })
+    )
+  }
+  
+  
   
   Provider_List_Mutate[["Referrals_MonthWeek"]] <- left_join(
     Provider_List_Mutate[["Referrals_MonthWeek"]],

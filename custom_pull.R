@@ -1,4 +1,6 @@
+################
 ## Packages ####
+################
 
 listOfPackages <- c("tidyverse", "dbplyr", "DBI", "odbc", "janitor", "lubridate", "magrittr", "devtools")
 
@@ -13,7 +15,9 @@ function_load <- function(pkgs) {
 
 function_load(listOfPackages)
 
+############################
 ## Establish Connection ####
+############################
 
 con <-
   dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
@@ -22,18 +26,22 @@ con <-
 
 source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_funtion_code.R")
 
+##################
 ## Parameters ####
+##################
 
 Provider_Code <- "RJE"
 Provider_Code_00 <- "RJE00"
-Specialty <- "300"
-Specialty_name <- "General (internal) medicine"
+Specialty <- "400"
+Specialty_name <- "Neurology"
 Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty) ## don't need to change this line
 Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 ## Note: If using X01 specify "Other" as Specialty_name
 
+####################
 ## Use function ####
+####################
 
 outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                              Provider_Code_00 = Provider_Code_00,
@@ -42,15 +50,19 @@ outpatients <- Pull_From_SQL(Provider_Code = Provider_Code,
                       Specialty_name = Specialty_name, 
                       Final_Date = Final_Date)
 
-## See full script inside RStudio ####
+##############################################
+## See finished data frame inside RStudio ####
+##############################################
 
-outpatients[["Binded"]] %>% view
+outpatients %>% view
 
 ## Write to CSV ####
 
-write_csv(outpatients[["Binded"]], paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"), na = '')
+write_csv(outpatients, paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"), na = '')
 
+############
 ## Save ####
+############
 
 save.image("workspace.RData")
 
