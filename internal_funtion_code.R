@@ -1,4 +1,4 @@
-Script_Version <- "1.1307.2"
+Script_Version <- "1.2307.1"
 
 ############################
 ## Relevant Specialties ####
@@ -313,10 +313,25 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
     summarise(sum_FTE = sum(Total_FTE)) %>% 
     pivot_wider(names_from = Grade, values_from = sum_FTE) %>% 
     ungroup()
+  
+  walk(c("Associate Specialist", "Consultant (including Directors of Public Health)", 
+        "Core Training", "Foundation Doctor Year 1", "Foundation Doctor Year 2", 
+        "Specialty Doctor", "Specialty Registrar", "Consultant"), ~ {
+          
+          if (!.x %in% names(Provider_List[["Staffing_Medical_Sum"]])) {
+            Provider_List[["Staffing_Medical_Sum"]] <<- mutate(Provider_List[["Staffing_Medical_Sum"]], !!.x := 0)
+          }
+        })
+  
   Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
   Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
+  
+  if (all(is.na(Provider_List[["Staffing_Medical_Sum"]]$Consultant))) {
+    Provider_List[["Staffing_Medical_Sum"]]$Consultant <- 0
+  }
+  
   Provider_List[["Staffing_Medical_Sum"]] %<>% mutate(Medic_Sum = rowSums(select(., -Effective_Snapshot_Date, -Organisation_Code), na.rm = T))
   Provider_List[["Staffing_Medical_Sum"]] %<>% select(Effective_Snapshot_Date, Organisation_Code, Consultant, Medic_Sum)
   Provider_List[["Staffing_Medical"]] <- NULL
