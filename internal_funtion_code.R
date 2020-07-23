@@ -1,4 +1,4 @@
-Script_Version <- "1.2307.1"
+Script_Version <- "1.2307.2"
 
 ############################
 ## Relevant Specialties ####
@@ -326,7 +326,9 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
   Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
   Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
-  Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
+  suppressWarnings({
+    Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% as.numeric()
+  })
   
   if (all(is.na(Provider_List[["Staffing_Medical_Sum"]]$Consultant))) {
     Provider_List[["Staffing_Medical_Sum"]]$Consultant <- 0
