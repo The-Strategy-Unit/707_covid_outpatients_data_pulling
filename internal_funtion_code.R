@@ -1,4 +1,4 @@
-Script_Version <- "1.2307.2"
+Script_Version <- "1.2807.1"
 
 ############################
 ## Relevant Specialties ####
@@ -1052,7 +1052,7 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   ## Add Diagnostics ####
   
-  cat("Adding in diagnostics data")
+  cat("Adding in diagnostics data\n")
   
   diag_specialty <- if (Specialty == "X01") "x01" else Specialty
   
@@ -1165,6 +1165,35 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   Binded <- Binded %>% fill(contains(diag_specialty), .direction = "down")
   
+  ## Diagnotics Derived ####
+  
+  cat("Diagnostics derived from Admitted..\n")
+  
+   
+  walk(names(diag_df)[-1], ~ {
+    
+   adm_var <- paste0("NoAdm_", .x %>% str_remove_all(paste0("_", diag_specialty)))
+   seen_var <- paste0("NoSeen_", .x %>% str_remove_all(paste0("_", diag_specialty)))
+   Binded <<- Binded %>% mutate(
+     !!adm_var := case_when(
+       is.infinite(CompletedPathways_Admitted / UQ(rlang::sym(.x))) ~ 0,
+       TRUE ~ CompletedPathways_Admitted / UQ(rlang::sym(.x))
+     ), 
+     !!seen_var := case_when(
+       is.infinite(CompletedPathways_NonAdmitted / UQ(rlang::sym(.x))) ~ 0,
+       TRUE ~ CompletedPathways_NonAdmitted / UQ(rlang::sym(.x))
+     )
+   )
+   
+  }
+  )
+  
+  adm_var <- paste0("NoAdm_", names(diag_df)[-1] %>% str_remove_all(paste0("_", diag_specialty)))
+  seen_var <- paste0("NoSeen_", names(diag_df)[-1] %>% str_remove_all(paste0("_", diag_specialty)))
+  
+  diagnostics_columns <- pmap(list(names(diag_df)[-1], adm_var, seen_var), ~ c(..1, ..2, ..3)) %>% unlist()
+  
+  Binded %<>% select(setdiff(names(Binded), diagnostics_columns), diagnostics_columns)
   
   ## Time end ####
   
