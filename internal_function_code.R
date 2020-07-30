@@ -1,4 +1,4 @@
-Script_Version <- "1.2807.1"
+Script_Version <- "1.3007.1"
 
 ############################
 ## Relevant Specialties ####
@@ -19,7 +19,7 @@ outpatients_tibble <- tibble(codes = outpatients_specialties,
 ##################################
 
 dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
-                                      as.Date("2020-12-31"),
+                                      as.Date("2021-03-28"),
                                       by = "day"),
                        formattedweek = day %>% map_chr(function(x) {
                          paste0(year(x), "-", if (str_count(week(x)) == 1) {
@@ -939,8 +939,10 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   if (all(Check)) {
     Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Referrals_MonthWeek")], full_join, c("Effective_Snapshot_Date"))
-    Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
+    Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020|2021"))
   }
+  
+  Binded %<>% arrange(Effective_Snapshot_Date)
   
   ## Minor fix for GP Referrals ####
   
@@ -1044,11 +1046,9 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   Binded %<>% select(Effective_Snapshot_Date, WaitingList, everything(), Transfers)
   
-  Binded %<>% add_column(Mortality_Rate = NA, .after = "Medic_Sum") %>% 
-    add_column(Diagnostics = NA, .after = "NoAdm_per_Theatre") %>% 
-    add_column(NoAdm_per_Diagnostic = NA, .after = "Diagnostics") %>% 
-    add_column(NoSeen_per_Diagnostic = NA, .after = "NoSeen_per_Consultant") %>% 
-    add_column(PCT_Recover = NA, .after = "NoSeen_per_Diagnostic")
+  Binded %<>% add_column(Mortality_Rate = NA, .after = "Medic_Sum")
+  
+  Binded %<>% mutate(PCT_Recover = NotSeen_Recovered/WaitingList)
   
   ## Add Diagnostics ####
   
@@ -1193,7 +1193,80 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   diagnostics_columns <- pmap(list(names(diag_df)[-1], adm_var, seen_var), ~ c(..1, ..2, ..3)) %>% unlist()
   
-  Binded %<>% select(setdiff(names(Binded), diagnostics_columns), diagnostics_columns)
+  Binded %<>% select(
+    "Effective_Snapshot_Date",
+    "WaitingList",
+    "PopNeed_GP",
+    "PopNeed_Other",
+    "GP_Referrals",
+    "OtherReferrals",
+    "RTT_Referrals",
+    "CompletedPathways_Admitted",
+    "CompletedPathways_NonAdmitted",
+    "RTT_NotSeen",
+    "NotSeen_Recovered",
+    "NotSeen_Died",
+    "Total_No_Beds",
+    "Consultant",
+    "No_of_Operating_Theatres",
+    "Absence_PCT",
+    "Medic_Sum",
+    "Mortality_Rate",
+    "NoAdm_per_Bed",
+    "NoAdm_per_Consultant",
+    "NoAdm_per_Theatre",
+    diagnostics_columns[diagnostics_columns %>% str_detect("endoscopy_")],
+    "NoAdm_endoscopy",
+    "NoSeen_per_Consultant",
+    "NoSeen_endoscopy",
+    "PCT_Recover",
+    "Transfers",
+    map(c("audiology", "cardiology_echocardiography", "computed_tomography", "dexa_scan", "magnetic_resonance_imaging", "non_obstetric_ultrasound"), ~ diagnostics_columns[diagnostics_columns %>% str_detect(.x)]) %>% unlist()
+  )
+  
+  ## New weeks ####
+  
+  new_dates <- dates_lookup_formula[which(dates_lookup_formula$Effective_Snapshot_Date == "2020-27"):which(dates_lookup_formula$Effective_Snapshot_Date == "2021-13"),"Effective_Snapshot_Date"] %>% pull()
+  
+  walk(new_dates, function(date) {
+    
+    old_date <- paste0(date %>% str_sub(1, 4) %>% as.integer()-1, date %>% str_sub(5, 7))
+    
+    for (variable in setdiff(
+      names(Binded),
+      c(
+        "Effective_Snapshot_Date",
+        "WaitingList",
+        "Total_No_Beds",
+        "Consultant",
+        "No_of_Operating_Theatres",
+        "Absence_PCT",
+        "Medic_Sum",
+        "Mortality_Rate"
+      )
+    )) {
+      Binded[which(Binded$Effective_Snapshot_Date == date),variable] <<- Binded[[which(Binded$Effective_Snapshot_Date == old_date),variable]]
+    }
+    
+  })
+  
+  Binded[2:nrow(Binded),] %<>% mutate(WaitingList =
+           lag(
+             first(WaitingList) - (
+               cumsum(CompletedPathways_Admitted) + cumsum(CompletedPathways_NonAdmitted) + cumsum(RTT_NotSeen)
+             ) + cumsum(RTT_Referrals),
+             default = first(WaitingList)
+           ))
+  
+  ## Hot fix for values
+  
+  Binded %<>% filter(Effective_Snapshot_Date != "2021-14")
+  
+  Binded[which(Binded$Effective_Snapshot_Date %in% c("2021-12", "2021-13")),] %>% mutate(GP_Referrals = PopNeed_GP,
+                                                                                         OtherReferrals = PopNeed_Other)
+  
+  Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_Admitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_Admitted"]
+  Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_NonAdmitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_NonAdmitted"] 
   
   ## Time end ####
   
