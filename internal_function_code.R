@@ -1,4 +1,4 @@
-Script_Version <- "1.3007.1"
+Script_Version <- "1.3007.2"
 
 ############################
 ## Relevant Specialties ####
@@ -1048,7 +1048,8 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   Binded %<>% add_column(Mortality_Rate = NA, .after = "Medic_Sum")
   
-  Binded %<>% mutate(PCT_Recover = NotSeen_Recovered/WaitingList)
+  Binded %<>% mutate(PCT_Recover = NA,
+                     Mortality_Rate = NA)
   
   ## Add Diagnostics ####
   
@@ -1266,7 +1267,15 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
                                                                                          OtherReferrals = PopNeed_Other)
   
   Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_Admitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_Admitted"]
-  Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_NonAdmitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_NonAdmitted"] 
+  Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_NonAdmitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_NonAdmitted"]
+  
+  ## Last fill ####
+  
+  Binded %<>% fill(c("Consultant", "No_of_Operating_Theatres", "Medic_Sum", "Total_No_Beds"), .direction = "down")
+  
+  Binded %<>% mutate(PCT_Recover = NotSeen_Recovered/WaitingList,
+                     Mortality_Rate = NotSeen_Died/WaitingList) ## the waiting list gets manipulated so best to put this after
+  
   
   ## Time end ####
   

@@ -5,7 +5,7 @@
 con <-
   dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
 
-## Run extraction proces ####
+## Run extraction process ####
 
 start <- Sys.time()
 
@@ -311,7 +311,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Sickness_Absence1]
     "' )",
     con = con
   )
-) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available)) %>% select(Effective_Snapshot_Date, Organisation_Code, Absence_PCT) %>% collect()
+) %>% group_by(Effective_Snapshot_Date) %>% summarise(FTE_Days_Sick = sum(FTE_Days_Sick, na.rm = T), FTE_Days_Available = sum(FTE_Days_Available, na.rm = T)) %>% mutate(Absence_PCT = (FTE_Days_Sick / FTE_Days_Available)) %>% select(Absence_PCT, Effective_Snapshot_Date) %>% collect()
 
 cat("6/9) Sickness pulled\n")
 
