@@ -24,16 +24,16 @@ con <-
 
 ## Source function code ####
 
-source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_function_code.R")
+source_url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpatients_data_pulling/master/internal_function_code.R")
 
 ##################
 ## Parameters ####
 ##################
 
-Provider_Code <- "RJE"
-Provider_Code_00 <- "RJE00"
-Specialty <- "100"
-Specialty_name <- "General surgery"
+Provider_Code <- "RNS"
+Provider_Code_00 <- "RNS00"
+Specialty <- "150"
+Specialty_name <- "Neurosurgery"
 Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty) ## don't need to change this line
 Final_Date <- "2021-04-05" ## as YY-MM-DD
 

@@ -26,15 +26,15 @@ con <-
 ## Source function code ####
 ############################
 
-source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_function_code.R")
+source_url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpatients_data_pulling/master/internal_function_code.R")
 
 ##################
 ## Parameters ####
 ##################
 
-Provider_Code <- "RJE"
-Provider_Code_00 <- "RJE00"
-Final_Date <- "2020-06-30" ## as YY-MM-DD
+Provider_Code <- "RNS"
+Provider_Code_00 <- "RNS00"
+Final_Date <- "2021-04-05" ## as YY-MM-DD
 
 ####################
 ## Use function ####
@@ -42,7 +42,7 @@ Final_Date <- "2020-06-30" ## as YY-MM-DD
 
 container_list <- list() ## WARNING: this resets the list object each time you want to change the provider
 
-container_list <- map2((outpatients_tibble$codes %>% setNames(paste0(outpatients_tibble$codes, "-", outpatients_tibble$code_names))), outpatients_tibble$code_names, ~ {
+container_list <- map2((outpatients_tibble$codes %>% setNames(paste0(outpatients_tibble$codes, "-", outpatients_tibble$code_names)))[4:6], outpatients_tibble$code_names[4:6], ~ {
   
 cat(paste0("## Running ", Provider_Code, " ", .x, "-", .y, " ##\n"))
 
@@ -54,8 +54,6 @@ outpatients <- safe_pull(Provider_Code = Provider_Code,
                          Treatment_Code = if (.x == "X01") "X01" else paste0("C_", .x),
                          Specialty_name = .y, 
                          Final_Date = Final_Date)
-
-if (is.na(outpatients$result)) outpatients$result <- tibble()
 
 cat(paste0("## ", Provider_Code, " ", .x, "-", .y, " complete ##\n"))
 
