@@ -26,7 +26,7 @@ con <-
 ## Source function code ####
 ############################
 
-source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_funtion_code.R")
+source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_function_code.R")
 
 ##################
 ## Parameters ####

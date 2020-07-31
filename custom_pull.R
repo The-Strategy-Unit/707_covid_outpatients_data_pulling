@@ -24,7 +24,7 @@ con <-
 
 ## Source function code ####
 
-source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_funtion_code.R")
+source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/internal_function_code.R")
 
 ##################
 ## Parameters ####
@@ -32,10 +32,10 @@ source_url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatient
 
 Provider_Code <- "RJE"
 Provider_Code_00 <- "RJE00"
-Specialty <- "400"
-Specialty_name <- "Neurology"
+Specialty <- "100"
+Specialty_name <- "General surgery"
 Treatment_Code <- if (Specialty == "X01") "X01" else paste0("C_", Specialty) ## don't need to change this line
-Final_Date <- "2020-06-30" ## as YY-MM-DD
+Final_Date <- "2021-04-05" ## as YY-MM-DD
 
 ## Note: If using X01 specify "Other" as Specialty_name
 
