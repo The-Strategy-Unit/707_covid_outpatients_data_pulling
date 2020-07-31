@@ -1,4 +1,4 @@
-Script_Version <- "1.3007.2"
+Script_Version <- "1.3107.2"
 
 ############################
 ## Relevant Specialties ####
@@ -314,6 +314,18 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
     pivot_wider(names_from = Grade, values_from = sum_FTE) %>% 
     ungroup()
   
+  if (nrow(Provider_List[["Staffing_Medical_Sum"]]) == 0) {
+    Provider_List[["Staffing_Medical_Sum"]] <- tibble(
+      Effective_Snapshot_Date = c("2018-01-31", "2018-02-28", "2018-03-31", "2018-04-30", "2018-05-31", "2018-06-30", "2018-07-31", "2018-08-31", "2018-09-30", "2018-10-31", "2018-11-30", "2018-12-31", "2019-01-31", "2019-02-28", "2019-03-31", "2019-04-30", "2019-05-31", "2019-06-30", "2019-07-31", "2019-08-31", "2019-09-30", "2019-10-31", "2019-11-30", "2019-12-31", "2020-01-31", "2020-02-29", "2020-03-31", "2020-04-30"),
+      `Consultant (including Directors of Public Health` = NA,
+      `Core Training` = NA,
+      `Foundation Doctor Year 1` = NA,
+      `Foundation Doctor Year 2` = NA,
+      `Specialty Registrar` = NA,
+      `Consultant` = NA
+    )
+  }
+  
   walk(c("Associate Specialist", "Consultant (including Directors of Public Health)", 
         "Core Training", "Foundation Doctor Year 1", "Foundation Doctor Year 2", 
         "Specialty Doctor", "Specialty Registrar", "Consultant"), ~ {
@@ -323,7 +335,7 @@ FROM [central_midlands_csu_UserDB].[NHS_Workforce].[Medical_Staff1]
           }
         })
   
-  Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- unique(Provider_List[["Staffing_Medical"]]$Organisation_Code)
+  Provider_List[["Staffing_Medical_Sum"]]$Organisation_Code <- Provider_Code
   Provider_List[["Staffing_Medical_Sum"]] <- unite(Provider_List[["Staffing_Medical_Sum"]], "Consultant", contains("Consultant")) ## annoyingly unite na.rm only works on chr
   Provider_List[["Staffing_Medical_Sum"]]$Consultant %<>% str_replace_all("_NA|NA_", "")
   suppressWarnings({
@@ -563,6 +575,7 @@ SELECT
     
     df <- df %>% fill(-"Effective_Snapshot_Date", .direction = if (.y %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Staffing_Medical_Sum")) "up" else "down")
     
+    print(paste0(.y, " finished"))
     return(df)
   })
   
