@@ -1,4 +1,62 @@
 ############################
+## Relevant Specialties ####
+############################
+
+outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502, "X01")
+outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
+
+outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology")
+outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
+
+outpatients_tibble <- tibble(codes = outpatients_specialties,
+                             code_names = c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology", "Other"))
+
+
+##################################
+## Look up for relevant dates ####
+##################################
+
+dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
+                                      as.Date("2021-03-28"),
+                                      by = "day"),
+                       formattedweek = day %>% map_chr(function(x) {
+                         paste0(year(x), "-", if (str_count(week(x)) == 1) {
+                           paste0(0, week(x))
+                         } else {
+                           week(x)
+                         }
+                         )
+                       }),
+                       week = week(day),
+                       month = month(day),
+                       year = year(day)
+)
+
+dates_lookup_formula <- dates_lookup %>% group_by(year, month, week) %>% summarise(nrows = n())
+dates_lookup_formula %<>% mutate(days_in_month = sum(nrows), 
+                                 days_in_month_propn = nrows/days_in_month,
+                                 Effective_Snapshot_Date = paste0(
+                                   year,
+                                   "-",
+                                   week %>% map(~ if (str_length(.x) == 1) {
+                                     paste0("0", .x)
+                                   }
+                                   else {
+                                     .x
+                                   })
+                                 )
+)
+
+#####################
+## Load Diag CSV ####
+#####################
+
+DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/DiagSpecSplits.csv"))
+
+DiagSpecSplits <- bind_rows(DiagSpecSplits,
+                            crossing(Test = DiagSpecSplits$Test, Specialty = setdiff(outpatients_tibble$codes, DiagSpecSplits$Specialty), Percent = 0.00))
+
+############################
 ## Establish Connection ####
 ############################
 
@@ -357,6 +415,8 @@ Provider_List[["Referrals"]] <- tbl(
 
 Provider_List[["Referrals"]] %<>% group_by(Effective_Snapshot_Date) %>% summarise(ACTIVITY = sum(ACTIVITY))
 
+Provider_List[["Referrals"]] %<>% filter(!is.na(Effective_Snapshot_Date))
+
 cat("7/9) Referrals pulled\n")
 
 ## Patient Left Not Seen (NotSeen_Recovered) ####
@@ -512,8 +572,7 @@ Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupie
   
   duplicates <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(hard_count = n()) %>% filter(hard_count != 1) %>% pull(Effective_Snapshot_Date)
   
-  df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates &
-                          is.na(Organisation_Code)))
+  df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates))
   
   df <- df %>% fill(-"Effective_Snapshot_Date", .direction = if (.y %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Staffing_Medical_Sum")) "up" else "down")
   
@@ -541,19 +600,10 @@ walk(c("NotSeen_Recovered", "NotSeen_Died"), ~ {
     month(df$Effective_Snapshot_Date)
   df$Effective_Snapshot_Date_Week <-
     week(df$Effective_Snapshot_Date)
-  
-  df <-
-    df %>% fill(
-      "ProviderCode",
-      "ProviderName",
-      "TreatmentSpecialtyCode",
-      "TreatmentSpecialtyDescription",
-      .direction = "downup"
-    )
-  df[which(is.na(df$Activity)), "Activity"] <- 0
+
+    df[which(is.na(df$Activity)), "Activity"] <- 0
   
   df <- df %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
-    Organisation_Code = unique(ProviderCode),
     !!paste0(.x) := sum(Activity)
   )
   df$Effective_Snapshot_Date <-
@@ -569,7 +619,7 @@ walk(c("NotSeen_Recovered", "NotSeen_Died"), ~ {
         })
       )
     )
-  df %<>% ungroup() %>% select(Effective_Snapshot_Date, Organisation_Code, .x)
+  df %<>% ungroup() %>% select(Effective_Snapshot_Date, .x)
   
   Provider_List_Mutate[[paste0(.x)]] <<- df
 }
@@ -623,7 +673,6 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] <- df %>% group_by(
   Effective_Snapshot_Date_Week
 ) %>%
   summarise(
-    Organisation_Code = first(Organisation_Code),
     Activity_Sum = sum(ACTIVITY)
   ) %>%
   arrange(
@@ -649,6 +698,39 @@ if (all(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) 
   
 }
 
+## ####
+
+## Fix April Proportions
+
+april_propn_fix <- anti_join(dates_lookup_formula %>% filter(year == 2020, month == 4) %>% select(year, month, week),
+          Provider_List_Mutate[["Referrals_MonthWeek"]] %>%
+            ungroup %>% 
+            select(contains("Effective")) %>% 
+            filter(Effective_Snapshot_Date_Year == 2020, 
+                   Effective_Snapshot_Date_Month == 4) %>% 
+            rename(year = Effective_Snapshot_Date_Year,
+                   month = Effective_Snapshot_Date_Month,
+                   week = Effective_Snapshot_Date_Week)
+) %>% ungroup()
+
+if (nrow(april_propn_fix) > 0) {
+  
+  for (idx in seq_len(nrow(april_propn_fix))) {
+    Provider_List_Mutate[["Referrals_MonthWeek"]] <- 
+      add_row(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup(),
+              Effective_Snapshot_Date_Year = april_propn_fix[[idx, "year"]],
+              Effective_Snapshot_Date_Month = april_propn_fix[[idx, "month"]],
+              Effective_Snapshot_Date_Week = april_propn_fix[[idx, "week"]],
+              Activity_Sum = 0)
+  }
+}
+
+for (april_week in paste0("2020-", 14:18)) {
+  Provider_List_Mutate[["Referrals_MonthWeek"]][which(Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date == april_week),"Propn"] <- dates_lookup_formula %>% filter(Effective_Snapshot_Date == april_week & month == 4) %>% pull(days_in_month_propn)
+}
+  
+## ####
+
 if (any(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
   
   for (row_idx in which(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
@@ -662,17 +744,6 @@ if (any(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) 
   }
   
   rm(my_year, my_month, my_week)
-}
-
-## Ad hoc fix for RL4 / 330 ####
-
-if (Provider_Code == "RL4" & Specialty == "330") {
-  
-  Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formula %>% filter(year == 2019, month == 12) %>% rename(Effective_Snapshot_Date_Year = year, Effective_Snapshot_Date_Month = month, Effective_Snapshot_Date_Week = week, Propn = days_in_month_propn) %>% select(-nrows, -days_in_month))
-  Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% filter(!(Effective_Snapshot_Date_Year == 2019 & Effective_Snapshot_Date_Month == 12 & Effective_Snapshot_Date_Week == 48 & Activity_Sum == 1))
-  
-  Provider_List_Mutate[["Referrals_MonthWeek"]][which(is.na(Provider_List_Mutate[["Referrals_MonthWeek"]]$Activity_Sum)), "Activity_Sum"] <- 0
-  
 }
 
 Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
@@ -692,7 +763,6 @@ Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
 
 Provider_List_Mutate[["Referrals_Week"]] <-
   Provider_List_Mutate[["Referrals_MonthWeek"]] %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
-    Organisation_Code = unique(Organisation_Code),
     GP_Referrals = sum(Activity_Sum)
   )
 Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
@@ -708,7 +778,8 @@ Provider_List_Mutate[["Referrals_Week"]]$Effective_Snapshot_Date <-
       })
     )
   )
-Provider_List_Mutate[["Referrals_Week"]] %<>% ungroup() %>% select(Effective_Snapshot_Date, Organisation_Code, GP_Referrals)
+
+Provider_List_Mutate[["Referrals_Week"]] %<>% ungroup() %>% select(Effective_Snapshot_Date, GP_Referrals)
 rm(df)
 
 ## Further wrangling - full RTT table ####
@@ -747,7 +818,7 @@ if (nrow(missing_months) > 0) {
 
 Provider_List_Mutate[["Referrals_MonthWeek"]] <- left_join(
   Provider_List_Mutate[["Referrals_MonthWeek"]],
-  Provider_List[["RTT_Table_Pivot"]] %>% select(-Organisation_Code,-Effective_Snapshot_Date),
+  Provider_List[["RTT_Table_Pivot"]] %>% select(-Effective_Snapshot_Date),
   by = c(
     "Effective_Snapshot_Date_Year",
     "Effective_Snapshot_Date_Month"
@@ -785,7 +856,6 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% mutate_at(vars("Completed.Pat
 ## Waiting List Wrangling ####
 
 Provider_List_Mutate[["Pathways_Monthly"]] <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month) %>% summarise(
-  Organisation_Code = unique(Organisation_Code),
   CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
   CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
   IncompletePathways = sum(Incomplete.Pathways),
@@ -854,7 +924,6 @@ pwalk(list(Vector_Year_Week,
 
 Provider_List_Mutate[["RTT_PathwayAndReferrals_Complete"]] <-
   Provider_List_Mutate[["Referrals_MonthWeek"]] %>% ungroup() %>% group_by(Effective_Snapshot_Date) %>% summarise(
-    Organisation_Code = unique(Organisation_Code),
     CompletedPathways_Admitted = sum(Completed.Pathways.For.Admitted.Patients),
     CompletedPathways_NonAdmitted = sum(Completed.Pathways.For.Non.Admitted.Patients),
     IncompletePathways = sum(Incomplete.Pathways),
@@ -893,8 +962,14 @@ Check <- Provider_List_Mutate %>% map(~ (
 
 if (all(Check)) {
   Binded <- reduce(Provider_List_Mutate[which(names(Provider_List_Mutate) != "Referrals_MonthWeek")], full_join, c("Effective_Snapshot_Date"))
-  Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020"))
+  Binded <- Binded %>% select(-contains("Organisation_Code")) %>% filter(str_detect(Effective_Snapshot_Date, "2019|2020|2021"))
 }
+
+Binded %<>% arrange(Effective_Snapshot_Date)
+
+## Fix broken rows in static cols ####
+
+Binded %<>% fill(c("No_of_Operating_Theatres", contains("Number_Of_Beds"), "Consultant", "Medic_Sum", "Absence_PCT"), .direction = "down")
 
 ## Minor fix for GP Referrals ####
 
@@ -931,19 +1006,14 @@ Binded %<>% select(Effective_Snapshot_Date, WaitingList, PopNeed_GP, PopNeed_Oth
 
 Binded %<>% fill(c("GP_Referrals", "OtherReferrals", "Total_No_Beds", "RTT_Referrals", "CompletedPathways_Admitted", "Consultant", "Medic_Sum", "CompletedPathways_NonAdmitted", "RTT_NotSeen"), .direction = "down")
 
-## Derived Final Cols ####
+## Prep Final Cols ####
 
 Binded %<>% mutate(
-  NoAdm_per_Bed = round(
-    CompletedPathways_Admitted / Total_No_Beds,
-    2
-  ),
-  NoAdm_per_Consultant = round(CompletedPathways_Admitted / Consultant / (1 -
-                                                                            Absence_PCT), 2),
-  NoAdm_per_Theatre = round(CompletedPathways_Admitted / No_of_Operating_Theatres, 2),
-  NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted / Consultant /
-                                  (1 - Absence_PCT), 2),
-  Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
+  NoAdm_per_Bed = NA,
+  NoAdm_per_Consultant = NA,
+  NoAdm_per_Theatre = NA,
+  NoSeen_per_Consultant = NA,
+  Transfers = NA
 )
 
 for (colx in c("PopNeed_GP", "PopNeed_Other")) {
@@ -976,6 +1046,7 @@ for (relevant_idx in init_idx:nrow(Binded)) {
     paste0(as.integer(str_sub(Relevant_Date, 1, 4)) - 1,
            "-",
            str_sub(Relevant_Date, 6, 7))
+  cat(New_Date, "\n")
   
   Binded[[relevant_idx, "PopNeed_GP"]] <-
     Binded[[which(Binded$Effective_Snapshot_Date == New_Date), "PopNeed_GP"]]
@@ -1019,8 +1090,7 @@ tbl(
     , Effective_Snapshot_Date
     , Sum(WL_Tests_And_Procedures_Excl_Planned) as Tests   
     FROM [FD_UserDB].[central_midlands_csu_UserDB].[Diagnostic_Waits_And_Activity].[Activity_Mthly_Prov1]
-    WHERE Effective_Snapshot_Date >'2018-12-31' AND Diagnostic_ID IN ('1','2','3','5','6','7','12','13','14','15')
-    AND Organisation_Code = ",  paste0(Provider_Code),
+    WHERE Effective_Snapshot_Date >'2018-12-31' AND Diagnostic_ID IN ('1','2','3','5','6','7','12','13','14','15')",
     " GROUP BY Organisation_Code 
     , CASE WHEN Diagnostic_ID IN ('12','13','14','15') THEN 'Endoscopy' 
     ELSE Diagnostic_Test_Name END
@@ -1054,8 +1124,8 @@ diag_df <- imap(diag_df, ~ {
 
 diag_df <- diag_df %>% reduce(left_join, by = c("Organisation_Code", "Effective_Snapshot_Date"))
 
-diag_df %<>% mutate_at(vars(contains(diag_specialty)),
-                       function(x) if (all(is.na(x))) 0 else x)
+diag_df %<>% rowwise %>% mutate_at(vars(contains(diag_specialty)),
+                       function(x) if (all(is.na(x))) 0 else x) %>% ungroup()
 
 diag_df <-
   diag_df %>%
@@ -1066,7 +1136,7 @@ diag_df$Effective_Snapshot_Date_Year <-
 diag_df$Effective_Snapshot_Date_Month <-
   month(diag_df$Effective_Snapshot_Date)
 
-proportions_rip <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% select(contains("Effective"), "Organisation_Code", "Propn")
+proportions_rip <- Provider_List_Mutate[["Referrals_MonthWeek"]] %>% select(contains("Effective"), "Propn")
 
 check_anti <- anti_join(diag_df %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month), proportions_rip %>% select(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Month) %>% distinct())
 
@@ -1089,7 +1159,7 @@ if (nrow(check_anti) > 0) {
 
 diag_df <- left_join(
   diag_df,
-  proportions_rip %>% select(-"Organisation_Code", -"Effective_Snapshot_Date"),
+  proportions_rip %>% select(-"Effective_Snapshot_Date"),
   by = c(
     "Effective_Snapshot_Date_Year",
     "Effective_Snapshot_Date_Month"
@@ -1147,4 +1217,95 @@ seen_var <- paste0("NoSeen_", names(diag_df)[-1] %>% str_remove_all(paste0("_", 
 
 diagnostics_columns <- pmap(list(names(diag_df)[-1], adm_var, seen_var), ~ c(..1, ..2, ..3)) %>% unlist()
 
-Binded %<>% select(setdiff(names(Binded), diagnostics_columns), diagnostics_columns)
+Binded %<>% select(
+  "Effective_Snapshot_Date",
+  "WaitingList",
+  "PopNeed_GP",
+  "PopNeed_Other",
+  "GP_Referrals",
+  "OtherReferrals",
+  "RTT_Referrals",
+  "CompletedPathways_Admitted",
+  "CompletedPathways_NonAdmitted",
+  "RTT_NotSeen",
+  "NotSeen_Recovered",
+  "NotSeen_Died",
+  "Total_No_Beds",
+  "Consultant",
+  "No_of_Operating_Theatres",
+  "Absence_PCT",
+  "Medic_Sum",
+  "Mortality_Rate",
+  "NoAdm_per_Bed",
+  "NoAdm_per_Consultant",
+  "NoAdm_per_Theatre",
+  diagnostics_columns[diagnostics_columns %>% str_detect("endoscopy_")],
+  "NoAdm_endoscopy",
+  "NoSeen_per_Consultant",
+  "NoSeen_endoscopy",
+  "PCT_Recover",
+  "Transfers",
+  map(c("audiology", "cardiology_echocardiography", "computed_tomography", "dexa_scan", "magnetic_resonance_imaging", "non_obstetric_ultrasound"), ~ diagnostics_columns[diagnostics_columns %>% str_detect(.x)]) %>% unlist()
+)
+
+## New weeks ####
+
+new_dates <- dates_lookup_formula[which(dates_lookup_formula$Effective_Snapshot_Date == "2020-27"):which(dates_lookup_formula$Effective_Snapshot_Date == "2021-13"),"Effective_Snapshot_Date"] %>% pull()
+
+walk(new_dates, function(date) {
+  
+  old_date <- paste0(date %>% str_sub(1, 4) %>% as.integer()-1, date %>% str_sub(5, 7))
+  
+  for (variable in setdiff(
+    names(Binded),
+    c(
+      "Effective_Snapshot_Date",
+      "WaitingList",
+      "Total_No_Beds",
+      "Consultant",
+      "No_of_Operating_Theatres",
+      "Absence_PCT",
+      "Medic_Sum",
+      "Mortality_Rate"
+    )
+  )) {
+    Binded[which(Binded$Effective_Snapshot_Date == date),variable] <<- Binded[[which(Binded$Effective_Snapshot_Date == old_date),variable]]
+  }
+  
+})
+
+Binded[2:nrow(Binded),] %<>% mutate(WaitingList =
+                                      lag(
+                                        first(WaitingList) - (
+                                          cumsum(CompletedPathways_Admitted) + cumsum(CompletedPathways_NonAdmitted) + cumsum(RTT_NotSeen)
+                                        ) + cumsum(RTT_Referrals),
+                                        default = first(WaitingList)
+                                      ))
+
+## Hot fix for values
+
+Binded %<>% filter(Effective_Snapshot_Date != "2021-14")
+
+Binded[which(Binded$Effective_Snapshot_Date %in% c("2021-12", "2021-13")),] %<>% mutate(GP_Referrals = PopNeed_GP,
+                                                                                       OtherReferrals = PopNeed_Other)
+
+Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_Admitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_Admitted"]
+Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_NonAdmitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_NonAdmitted"]
+
+## Last fill ####
+
+Binded %<>% fill(c("Consultant", "No_of_Operating_Theatres", "Medic_Sum", "Total_No_Beds"), .direction = "down")
+
+Binded %<>% mutate(PCT_Recover = NotSeen_Recovered/WaitingList,
+                   Mortality_Rate = NotSeen_Died/WaitingList,  ## the waiting list gets manipulated so best to put this after at the end
+                   NoAdm_per_Bed = round(
+                     CompletedPathways_Admitted / Total_No_Beds,
+                     2
+                   ),
+                   NoAdm_per_Consultant = round(CompletedPathways_Admitted / Consultant / (1 -
+                                                                                             Absence_PCT), 2),
+                   NoAdm_per_Theatre = round(CompletedPathways_Admitted / No_of_Operating_Theatres, 2),
+                   NoSeen_per_Consultant = round(CompletedPathways_NonAdmitted / Consultant /
+                                                   (1 - Absence_PCT), 2),
+                   Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
+                   )
