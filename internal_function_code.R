@@ -1276,7 +1276,7 @@ Provider_List_Mutate[["Referrals_MonthWeek"]] %<>% bind_rows(dates_lookup_formul
   
   Binded %<>% filter(Effective_Snapshot_Date != "2021-14")
   
-  Binded[which(Binded$Effective_Snapshot_Date %in% c("2021-12", "2021-13")),] %>% mutate(GP_Referrals = PopNeed_GP,
+  Binded[which(Binded$Effective_Snapshot_Date %in% c("2021-12", "2021-13")),] %<>% mutate(GP_Referrals = PopNeed_GP,
                                                                                          OtherReferrals = PopNeed_Other)
   
   Binded[which(Binded$Effective_Snapshot_Date == "2021-13"),"CompletedPathways_Admitted"] <- Binded[which(Binded$Effective_Snapshot_Date == "2019-13"),"CompletedPathways_Admitted"]
