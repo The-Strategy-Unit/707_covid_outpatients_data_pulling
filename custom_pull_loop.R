@@ -42,7 +42,7 @@ Final_Date <- "2021-04-05" ## as YY-MM-DD
 
 container_list <- list() ## WARNING: this resets the list object each time you want to change the provider
 
-container_list <- map2((outpatients_tibble$codes %>% setNames(paste0(outpatients_tibble$codes, "-", outpatients_tibble$code_names)))[4:6], outpatients_tibble$code_names[4:6], ~ {
+container_list <- map2((outpatients_tibble$codes %>% setNames(paste0(outpatients_tibble$codes, "-", outpatients_tibble$code_names))), outpatients_tibble$code_names, ~ {
   
 cat(paste0("## Running ", Provider_Code, " ", .x, "-", .y, " ##\n"))
 
