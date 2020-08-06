@@ -1129,7 +1129,15 @@ diag_df <- imap(diag_df, ~ {
   .x %>% rename(!!sym(.y) := "Tests") %>% select(-Diagnostic_Test_Name)
 })
 
-diag_df <- diag_df %>% reduce(left_join, by = c("Organisation_Code", "Effective_Snapshot_Date"))
+diag_df <- map(diag_df, ~ {
+  
+  use_colname <- colnames(.x)[3]
+  
+  .x %>% group_by(Effective_Snapshot_Date) %>% summarise(!!use_colname := sum(!!sym(use_colname))) %>% arrange(Effective_Snapshot_Date) 
+  
+  })
+
+diag_df <- diag_df %>% reduce(left_join, by = c("Effective_Snapshot_Date"))
 
 diag_df %<>% rowwise %>% mutate_at(vars(contains(diag_specialty)),
                        function(x) if (all(is.na(x))) 0 else x) %>% ungroup()
