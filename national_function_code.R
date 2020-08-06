@@ -3,13 +3,13 @@
 ############################
 
 outpatients_specialties <- c(100, 101, 110, 120, 130, 140, 150, 160, 170, 300, 301, 320, 330, 340, 400, 410, 430, 502, "X01")
-outpatients_regex <- outpatients_specialties %>% paste0(collapse = "'', ''")
+outpatients_regex <- outpatients_specialties[-length(outpatients_specialties)] %>% paste0(collapse = "'', ''")
 
 outpatient_specialty_names <- c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Oral and Maxillofacial Surgery", "Oral Surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastro-enterology", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology")
 outpatient_specialty_names_regex <- outpatient_specialty_names %>% paste0(collapse = "'', ''")
 
 outpatients_tibble <- tibble(codes = outpatients_specialties,
-                             code_names = c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral and maxillo-facial surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology", "Other"))
+                             code_names = c("General surgery", "Urology", "Trauma and orthopaedic surgery", "Otolaryngology", "Ophthalmology", "Oral surgery", "Neurosurgery", "Plastic surgery", "Cardio-thoracic surgery", "General (internal) medicine", "Gastroenterology", "Cardiology", "Dermatology", "Respiratory medicine", "Neurology", "Rheumatology", "Geriatric medicine", "Obstetrics and Gynaecology", "Other"))
 
 
 ##################################
@@ -17,7 +17,7 @@ outpatients_tibble <- tibble(codes = outpatients_specialties,
 ##################################
 
 dates_lookup <- tibble(day = seq.Date(as.Date("2018-01-01"),
-                                      as.Date("2021-03-28"),
+                                      as.Date("2050-04-05"),
                                       by = "day"),
                        formattedweek = day %>% map_chr(function(x) {
                          paste0(year(x), "-", if (str_count(week(x)) == 1) {
@@ -51,7 +51,7 @@ dates_lookup_formula %<>% mutate(days_in_month = sum(nrows),
 ## Load Diag CSV ####
 #####################
 
-DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/covid_outpatients_pulling/master/DiagSpecSplits.csv"))
+DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpatients_data_pulling/master/DiagSpecSplits.csv"))
 
 DiagSpecSplits <- bind_rows(DiagSpecSplits,
                             crossing(Test = DiagSpecSplits$Test, Specialty = setdiff(outpatients_tibble$codes, DiagSpecSplits$Specialty), Percent = 0.00))
@@ -62,6 +62,8 @@ DiagSpecSplits <- bind_rows(DiagSpecSplits,
 
 con <-
   dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
+
+Pull_From_SQL_National <- function(Specialty, Treatment_Code, Specialty_name, Final_Date) {
 
 ## Run extraction process ####
 
@@ -545,10 +547,10 @@ Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupie
   df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
   
   if (.y == c("Occupied_Beds_Daycare") & Specialty == "X01") {
-    df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_DAY = sum(Number_Of_Beds_DAY), Organisation_Code = first(Organisation_Code))
+    df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_DAY = sum(Number_Of_Beds_DAY))
   }
   if (.y == c("Occupied_Beds_Overnight") & Specialty == "X01") {
-    df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_NIGHT = sum(Number_Of_Beds_NIGHT), Organisation_Code = first(Organisation_Code))
+    df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(Number_Of_Beds_NIGHT = sum(Number_Of_Beds_NIGHT))
   }    
   
   
@@ -572,7 +574,9 @@ Provider_List_Mutate <- Provider_List[which(names(Provider_List) %in% c("Occupie
   
   duplicates <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(hard_count = n()) %>% filter(hard_count != 1) %>% pull(Effective_Snapshot_Date)
   
-  df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates))
+  temp_col_name <- colnames(df)[2]
+  
+  df <- df %>% filter(!(Effective_Snapshot_Date %in% duplicates & is.na(!!sym(temp_col_name))))
   
   df <- df %>% fill(-"Effective_Snapshot_Date", .direction = if (.y %in% c("Occupied_Beds_Daycare", "Occupied_Beds_Overnight", "Staffing_Medical_Sum")) "up" else "down")
   
@@ -631,7 +635,7 @@ df <- Provider_List[["Referrals"]]
 df <- df %>% mutate_at("Effective_Snapshot_Date", as.Date)
 
 if (Specialty == "X01") {
-  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(ACTIVITY = sum(ACTIVITY), Organisation_Code = first(Organisation_Code))
+  df <- df %>% group_by(Effective_Snapshot_Date) %>% summarise(ACTIVITY = sum(ACTIVITY))
 }
 
 # df <- df %>% filter(Effective_Snapshot_Date >= "2019-01-01")
@@ -725,12 +729,6 @@ if (nrow(april_propn_fix) > 0) {
   }
 }
 
-for (april_week in paste0("2020-", 14:18)) {
-  Provider_List_Mutate[["Referrals_MonthWeek"]][which(Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date == april_week),"Propn"] <- dates_lookup_formula %>% filter(Effective_Snapshot_Date == april_week & month == 4) %>% pull(days_in_month_propn)
-}
-  
-## ####
-
 if (any(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
   
   for (row_idx in which(is.nan(Provider_List_Mutate[["Referrals_MonthWeek"]] %>% pull(Propn)))) {
@@ -760,6 +758,14 @@ Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date <-
       })
     )
   )
+
+## April propns fix assign ####
+
+for (april_week in paste0("2020-", 14:18)) {
+  Provider_List_Mutate[["Referrals_MonthWeek"]][which(Provider_List_Mutate[["Referrals_MonthWeek"]]$Effective_Snapshot_Date == april_week),"Propn"] <- dates_lookup_formula %>% filter(Effective_Snapshot_Date == april_week & month == 4) %>% pull(days_in_month_propn)
+}
+
+## Above ##
 
 Provider_List_Mutate[["Referrals_Week"]] <-
   Provider_List_Mutate[["Referrals_MonthWeek"]] %>% group_by(Effective_Snapshot_Date_Year, Effective_Snapshot_Date_Week) %>% summarise(
@@ -984,6 +990,7 @@ rm(no_GP_referrals)
 
 ## GP Referrals issue fix ####
 
+Binded$GP_Referrals %<>% as.integer()
 Binded %<>% mutate_at(vars("GP_Referrals"), funs(case_when(. > as.integer(RTT_Referrals) ~ as.integer(RTT_Referrals),
                                                            TRUE ~ .)))
 
@@ -1250,7 +1257,7 @@ Binded %<>% select(
 
 ## New weeks ####
 
-new_dates <- dates_lookup_formula[which(dates_lookup_formula$Effective_Snapshot_Date == "2020-27"):which(dates_lookup_formula$Effective_Snapshot_Date == "2021-13"),"Effective_Snapshot_Date"] %>% pull()
+new_dates <- suppressWarnings(dates_lookup_formula[which(dates_lookup_formula$Effective_Snapshot_Date == "2020-27"):which(dates_lookup_formula$Effective_Snapshot_Date == "2021-13"),"Effective_Snapshot_Date"] %>% pull()) ## warning doesn't matter
 
 walk(new_dates, function(date) {
   
@@ -1309,3 +1316,14 @@ Binded %<>% mutate(PCT_Recover = NotSeen_Recovered/WaitingList,
                                                    (1 - Absence_PCT), 2),
                    Transfers = RTT_NotSeen - (NotSeen_Recovered + NotSeen_Died)
                    )
+
+
+## Time end ####
+
+end <- Sys.time()
+
+print(end-start)
+
+return(Binded)
+
+}
