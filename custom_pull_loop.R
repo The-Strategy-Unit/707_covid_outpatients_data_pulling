@@ -32,8 +32,8 @@ source_url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpat
 ## Parameters ####
 ##################
 
-Provider_Code <- "RNS"
-Provider_Code_00 <- "RNS00"
+Provider_Code <- "RXN"
+Provider_Code_00 <- "RXN00"
 Final_Date <- "2021-04-05" ## as YY-MM-DD
 
 ####################
@@ -46,7 +46,7 @@ container_list <- map2((outpatients_tibble$codes %>% setNames(paste0(outpatients
   
 cat(paste0("## Running ", Provider_Code, " ", .x, "-", .y, " ##\n"))
 
-safe_pull <- safely(Pull_From_SQL, otherwise = tibble())
+safe_pull <- safely(Pull_From_SQL, otherwise = tibble(a = NA))
 
 outpatients <- safe_pull(Provider_Code = Provider_Code,
                          Provider_Code_00 = Provider_Code_00,
