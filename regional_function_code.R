@@ -63,10 +63,10 @@ DiagSpecSplits <- bind_rows(DiagSpecSplits,
 con <-
   dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
 
-Pull_From_SQL_National <- function(Specialty, Treatment_Code, Specialty_name, Final_Date) {
+Pull_From_SQL_National <- function(RegionCode, Specialty, Treatment_Code, Specialty_name, Final_Date) {
   
-TrustCodesRegex <- TrustCodes %>% filter(RegionCode == "Y62") %>% pull(TrustCode) %>% paste0(collapse = "', '")
-TrustCodesRegex_00 <- TrustCodes %>% filter(RegionCode == "Y62") %>% pull(TrustCode) %>% paste0("00", collapse = "', '")
+TrustCodesRegex <- TrustCodes %>% filter(RegionCode == RegionCode) %>% pull(TrustCode) %>% paste0(collapse = "', '")
+TrustCodesRegex_00 <- TrustCodes %>% filter(RegionCode == RegionCode) %>% pull(TrustCode) %>% paste0("00", collapse = "', '")
 
 ## Run extraction process ####
 
