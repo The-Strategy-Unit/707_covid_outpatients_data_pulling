@@ -56,7 +56,7 @@ outpatients %>% view
 
 ## Write to CSV ####
 
-write_csv(outpatients, paste0(Provider_Code, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"), na = '')
+write_csv(outpatients, paste0(RegionCode, "_", str_replace_all(Specialty_name, " ", "_"), ".csv"), na = '')
 
 ############
 ## Save ####

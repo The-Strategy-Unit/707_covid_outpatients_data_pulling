@@ -56,6 +56,12 @@ DiagSpecSplits <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-U
 DiagSpecSplits <- bind_rows(DiagSpecSplits,
                             crossing(Test = DiagSpecSplits$Test, Specialty = setdiff(outpatients_tibble$codes, DiagSpecSplits$Specialty), Percent = 0.00))
 
+########################
+## Load Trust Codes ####
+########################
+
+TrustCodes <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpatients_data_pulling/master/TrustCodeswithRegions.csv"))
+
 ############################
 ## Establish Connection ####
 ############################
