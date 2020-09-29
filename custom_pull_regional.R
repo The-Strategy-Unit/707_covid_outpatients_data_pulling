@@ -42,7 +42,7 @@ Final_Date <- "2021-04-05" ## as YY-MM-DD
 ## Use function ####
 ####################
 
-outpatients <- Pull_From_SQL(RegionCode = RegionCode,
+outpatients <- Pull_From_SQL_Regional(RegionCode = RegionCode,
                       Specialty = Specialty,
                       Treatment_Code = Treatment_Code,
                       Specialty_name = Specialty_name, 
