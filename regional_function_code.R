@@ -61,18 +61,12 @@ DiagSpecSplits <- bind_rows(DiagSpecSplits,
 ########################
 
 TrustCodes <- read_csv(url("https://raw.githubusercontent.com/The-Strategy-Unit/707_covid_outpatients_data_pulling/master/TrustCodeswithRegions.csv"))
-
-############################
-## Establish Connection ####
-############################
-
-con <-
-  dbConnect(odbc(), Driver = "SQL Server", server = "MLCSU-BI-SQL-SU")
+TrustCodes <- TrustCodes %>% rename(Region_Code = RegionCode)
 
 Pull_From_SQL_Regional <- function(RegionCode, Specialty, Treatment_Code, Specialty_name, Final_Date) {
   
-TrustCodesRegex <- TrustCodes %>% filter(RegionCode == RegionCode) %>% pull(TrustCode) %>% paste0(collapse = "', '")
-TrustCodesRegex_00 <- TrustCodes %>% filter(RegionCode == RegionCode) %>% pull(TrustCode) %>% paste0("00", collapse = "', '")
+TrustCodesRegex <- TrustCodes %>% filter(Region_Code == RegionCode) %>% pull(TrustCode) %>% paste0(collapse = "', '")
+TrustCodesRegex_00 <- TrustCodes %>% filter(Region_Code == RegionCode) %>% pull(TrustCode) %>% paste0("00", collapse = "', '")
 
 ## Run extraction process ####
 
